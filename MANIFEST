@@ -4,3 +4,5 @@ MANIFEST
 Makefile.PL
 README
 test.pl
+eg/example.pl
+eg/example2.pl

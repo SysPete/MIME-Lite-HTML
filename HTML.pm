@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.4  2001/05/29 22:15:27  alian
+# - Add search and replace for the text part (tks to christopher@thedial.com)
+#
 # Revision 1.3  2001/05/05 22:18:10  alian
 # - Add feature of  IncludeImage key in constructor: now module can use
 # "Content-Location" field, "Content-CID field" or not include images and 
@@ -73,7 +76,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.3 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.4 $ ' =~ /(\d+\.\d+)/)[0];
 
 #------------------------------------------------------------------------------
 # new
@@ -284,7 +287,11 @@ sub parse
      
      # Substitue value in template if needed
      if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
-       {$gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});}
+       {
+	 $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});
+	 $gabarit_txt=$self->fill_template($gabarit_txt,
+					   $self->{_HASH_TEMPLATE});
+       }
      
      # Create MIME-Lite object
      $self->build_mime_object($gabarit,$gabarit_txt,@mail);
@@ -572,7 +579,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.3 $
+$Revision: 1.4 $
 
 =head1 DESCRIPTION
 
