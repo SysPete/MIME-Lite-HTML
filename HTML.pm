@@ -5,6 +5,11 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.16  2003/08/07 00:07:57  alian
+# - Use pack for include type == cid: RFC says no '/'.
+# Tks to Cláudio Valente for report.
+# - Add a __END__ statement before POD documentation.
+#
 # Revision 1.15  2002/10/19 17:54:32  alian
 # - Correct bug with relative anchor '/'. Tks to Keith D. Zimmerman for
 # report.
@@ -54,7 +59,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.15 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.16 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -284,7 +289,8 @@ sub parse
 	  # For background images
 	  elsif ((lc($$url[1]) eq 'background') && ($$url[2])) {
 	    # Replace relative url with absolute
-	    my $v = ($self->{_include} eq 'cid') ? "cid:$urlAbs" : $urlAbs;
+	    my $v = ($self->{_include} eq 'cid') ?
+	      "cid:".$self->cid($urlAbs) : $urlAbs;
 	    $gabarit=~s/background \s* = \s* [\"']? \Q$$url[2]\E\" ([\"'>])
                        /pattern_href($v,"background",$1)/giemx;
             # Exit with extern configuration, don't include image
@@ -324,7 +330,7 @@ sub parse
 	    $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
 	    # Replace relative url with absolute
 	    my $v = ($self->{_include} eq 'cid') ?
-	      "cid:$urlAbs" : $urlAbs;
+	      "cid:".$self->cid($urlAbs) : $urlAbs;
 	    $gabarit=~s/value \s* = \s* [\"'] \Q$$url[4]\E ([\"'>])
                        /pattern_href($v,"value",$1)/giemx;
 	    # Exit with extern configuration, don't include image
@@ -347,8 +353,9 @@ sub parse
 
     # Replace in HTML link with image with cid:key
     sub pattern_image_cid {
+      my $sel = shift;
       return '<img '.$_[0].'src="cid:'.
-	URI::WithBase->new($_[1],$_[2])->abs.'"';
+	$sel->cid(URI::WithBase->new($_[1],$_[2])->abs).'"';
     }
     # Replace relative url for image with absolute
     sub pattern_image {
@@ -357,7 +364,7 @@ sub parse
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
        {$gabarit=~s/<img ([^<>]*) src\s*=\s*(["']?) ([^"'> ]* )(["']?)
-	           /pattern_image_cid($1,$3,$racinePage)/iegx;}
+	           /pattern_image_cid($self,$1,$3,$racinePage)/iegx;}
      # Else just make a absolute url
      else {$gabarit=~s/<img ([^<>]*) src\s*=\s*(["']?)([^"'> ]*) (["']?)
 	              /pattern_image($1,$3,$racinePage)/iegx;}
@@ -601,7 +608,9 @@ sub create_image_part
 
     $mail->attr("Content-type"=>$type);
     # With cid configuration, add a Content-ID field
-    if ($self->{_include} eq 'cid') {$mail->attr('Content-ID' =>'<'.$ur.'>');}
+    if ($self->{_include} eq 'cid') {
+      $mail->attr('Content-ID' =>'<'.$self->cid($ur).'>');
+    }
     # Else (location) put a Content-Location field
     else {$mail->attr('Content-Location'=>$ur);}
 
@@ -612,6 +621,20 @@ sub create_image_part
 
     return $mail;
   }
+
+#------------------------------------------------------------------------------
+# cid
+#------------------------------------------------------------------------------
+sub cid  (\%$) {
+  my ($self, $url)=@_;
+  # rfc say: don't use '/'. So I do a pack on it.
+  # but as string can get long, I need to revert it to have
+  # difference at begin of url to avoid max size of cid
+  # I remove scheme always same in a document.
+  $url = substr($url, 7);
+  return reverse(split("",unpack("h".length($url),$url))).'@'.$ENV{HOSTNAME};
+}
+
 
 #------------------------------------------------------------------------------
 # link_form
@@ -674,6 +697,7 @@ sub errstr
     return ();
   }
 
+__END__
 
 #------------------------------------------------------------------------------
 # POD Documentation
@@ -705,7 +729,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.15 $
+$Revision: 1.16 $
 
 =head1 DESCRIPTION
 

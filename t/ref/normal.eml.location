@@ -1,5 +1,5 @@
 Content-Transfer-Encoding: binary
-Content-Type: multipart/related; boundary="--alian-mime-lite-html"
+Content-Type: multipart/alternative; boundary="alian-mime-lite-html"
 MIME-Version: 1.0
 
 Subject: Mail in HTML with images
@@ -9,7 +9,19 @@ X-Mailer: MIME::Lite::HTML 1.15
 
 This is a multi-part message in MIME format.
 
-----alian-mime-lite-html
+--alian-mime-lite-html
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-1
+
+
+A text message
+--alian-mime-lite-html
+Content-Type: multipart/related; boundary="alian-mime-lite-html"
+
+
+This is a multi-part message in MIME format.
+
+--alian-mime-lite-html
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/html; charset=iso-8859-1
 
@@ -206,7 +218,7 @@ er</a></li>
 </body>
 </html>
 
-----alian-mime-lite-html
+--alian-mime-lite-html
 Content-Location: file:///var/tmp/mime-lite-html-tests/docs/img/sommaire.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
@@ -225,5 +237,8 @@ OjWkLQMjtcALu2aAWbNjydKil1atGrZe3b4tKLds27ph6BYwoQWEWmld4NojUULBMkQhEPxTUIIC
 BhIKFjd+bHhDBhEKCoRY8C8DCQIcMoBg4LVZAAQlIijScsZgiIiuIzqIsCHQZokBIArOteCDAwcg
 opFwYEeBCgUYTCgAAcLB8eTLQRinAOIDagwLjp82QWJ0XLxgdhsDH74kTCVBAAA7
 
-----alian-mime-lite-html--
+--alian-mime-lite-html--
+
+
+--alian-mime-lite-html--
 

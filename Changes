@@ -1,5 +1,11 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.16  2003/08/07 00:07:57  alian
+- Use pack for include type == cid: RFC says no '/'.
+Tks to Cláudio Valente for report.
+- Add a __END__ statement before POD documentation.
+- Increase code coverage with help of Devel::Cover (30% to 65%).
+
 1.15  2002/10/19 17:54:32  alian
 - Correct bug with relative anchor '/'. Tks to Keith D. Zimmerman for
 report. Add some html for test.

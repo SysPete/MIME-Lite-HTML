@@ -24,8 +24,7 @@ $root/MIME/Lite.pm
 and in your script:
 
 #!/usr/bin/perl
-$root='/home/alian/mylibperl'
-use lib $root;
+use lib '/home/alian/mylibperl';
 use MIME::Lite;
 use MIME::Lite::HTML;
 
@@ -36,6 +35,7 @@ libnet, MIME::Lite
 DOCUMENTATION ?
 
 You'll find documentation in the file HTML.pm in POD format
+See too the eg directory
 
 When you install MIME::Lite::HTML, the MakeMaker program
 will automatically install the manual pages for you
