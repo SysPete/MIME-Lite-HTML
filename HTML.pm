@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.20  2004/04/14 21:26:51  alian
+# fix error on last version
+#
 # Revision 1.19  2004/03/16 15:18:57  alian
 # - Add Url param in new for direct call of parse & send
 # - Correct a problem in parsing of html elem background
@@ -39,7 +42,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.19 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.20 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -411,7 +414,7 @@ sub build_mime_object {
     # create simple e-mail.
     $mail = new MIME::Lite (%$ref);
     $mail->data($txt);
-    $self->addons();
+    #$self->addons();
     # Remove some header for Eudora client
     $mail->replace("MIME-Version" => "");
     $mail->replace("X-Mailer" => "");
@@ -436,7 +439,7 @@ sub build_mime_object {
     # Attach HTML part to related part
     $mail->attach($part);
     # Attach each image to related part
-    foreach (@$mail) {$mail->attach($_);} # Attach list of part
+    foreach (@$ref_mail) {$mail->attach($_);} # Attach list of part
     #$mail->replace("MIME-Version" => "");
     $mail->replace("Content-Disposition" => "");
   }
@@ -683,7 +686,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.19 $
+$Revision: 1.20 $
 
 =head1 DESCRIPTION
 

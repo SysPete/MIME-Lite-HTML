@@ -1,5 +1,9 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.20  2004/04/14 21:26:51  alian
+- fix error on last version
+- add test and grow coverage
+
 1.19  2004/03/16 15:18:57  alian
 - Add Url param in new for direct call of parse & send
 - Correct a problem in parsing of html elem "background"
