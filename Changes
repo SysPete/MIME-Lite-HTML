@@ -1,5 +1,11 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.7  2001/10/23 21:52:54  alian
+ - Correct bug with empty background image
+
+1.6  2001/10/21 22:25:27  alian
+ - Add needed depandencies in Makefile.PL
+
 1.5  2001/07/27 12:40:44  alian
   - Add support of custom encodings and charsets for the text and the html 
   parts (Thanks to michalis@linuxmail.org for patch)

@@ -5,6 +5,12 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.7  2001/10/23 21:52:54  alian
+# - Correct bug with empty background image
+#
+# Revision 1.6  2001/10/21 22:25:27  alian
+# - Ajout des dependances necessaires dans Makefile.PL
+#
 # Revision 1.5  2001/07/27 12:40:44  alian
 # - Add support of custom encodings and charsets for the text and the html 
 # parts (Thanks to michalis@linuxmail.org for patch)
@@ -62,7 +68,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.5 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.7 $ ' =~ /(\d+\.\d+)/)[0];
 
 #------------------------------------------------------------------------------
 # new
@@ -219,7 +225,7 @@ sub parse
 	     $url_remplace{$urlAbs}=1;
            }
          # For images background
-         elsif ($$url[1] eq 'background')
+         elsif (($$url[1] eq 'background') && ($$url[2]))
 	   {
 	     # Replace relative url with absolute
 	     my $v;
@@ -229,7 +235,7 @@ sub parse
 	     $gabarit=~s/background=\"$$url[2]\"/$v/im;
 	     # Exit with extern configuration, don't include image
 	     next if ($self->{_include} eq 'extern');
-	     print "Get ", $urlAbs,"\n" if $self->{_DEBUG};
+	     print "Get background ", $urlAbs,"\n" if $self->{_DEBUG};
 	     my $res2 = $self->{_AGENT}->request
 	       (new HTTP::Request('GET' => $urlAbs));
 	     # Create MIME  type
@@ -265,7 +271,7 @@ sub parse
 	   }
 	 else # Get image
 	   {
-	     print "Get ", $urlAbs,"\n" if $self->{_DEBUG};
+	     print "Get img ", $urlAbs,"\n" if $self->{_DEBUG};
 	     my $res2 = $self->{_AGENT}->
 	       request(new HTTP::Request('GET' => $urlAbs));
 	     if (!$res2->is_success) {$self->set_err("Can't get $urlAbs\n");}
@@ -588,7 +594,7 @@ sub errstr
 MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 SYNOPSIS
-  
+ 
   use MIME::Lite::HTML;
 
   my $mailHTML = new MIME::Lite::HTML
@@ -601,7 +607,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.5 $
+$Revision: 1.7 $
 
 =head1 DESCRIPTION
 
