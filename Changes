@@ -1,5 +1,9 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.5  2001/07/27 12:40:44  alian
+  - Add support of custom encodings and charsets for the text and the html 
+  parts (Thanks to michalis@linuxmail.org for patch)
+
 1.4  2001/05/29 22:15:27  alian
  - Add search and replace for the text part (tks to christopher@thedial.com)
 

@@ -58,9 +58,6 @@ SYNOPSIS
       $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com');
       $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
 
-VERSION
-    $Revision: 0.4 $
-
 DESCRIPTION
     This module is a Perl mail client interface for sending message that
     support HTML format and build them for you.. This module provide routine

@@ -5,6 +5,10 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.5  2001/07/27 12:40:44  alian
+# - Add support of custom encodings and charsets for the text and the html 
+# parts (Thanks to michalis@linuxmail.org for patch)
+#
 # Revision 1.4  2001/05/29 22:15:27  alian
 # - Add search and replace for the text part (tks to christopher@thedial.com)
 #
@@ -46,24 +50,6 @@ package MIME::Lite::HTML;
 # - Add feature to put data on the fly when image are available only on memory
 # - Put comments on print when buffer find url
 # Ideas suggested by mtveerman@mindless.com
-#
-# Revision 0.6  2000/12/13 11:02:58  alian
-# - Allow sup parameter for MIME-Lite in constructor
-# - Add parameter for parse url to include a text file when HTML
-#    is not supported by client.
-#
-# Revision 0.5  2000/11/13 21:36:58  Administrateur
-# - Arg, forgot cariage return in fill_template :-(
-#
-# Revision 0.4  2000/11/12 18:52:56  Administrateur
-# - Add feature of replace word in gabarit (for newsletter by example)
-# - Include body background
-#
-# Revision 0.3  2000/10/26 22:55:46  Administrateur
-# Add parsing for form (action and input image)
-#
-# Revision 0.2  2000/10/26 20:08:06  Administrateur
-# Update remplacement of relative url
 
 use LWP::UserAgent;
 use HTML::LinkExtor;
@@ -76,7 +62,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.4 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.5 $ ' =~ /(\d+\.\d+)/)[0];
 
 #------------------------------------------------------------------------------
 # new
@@ -109,6 +95,40 @@ sub new
       }
     # Defaut type: use a Content-Location field
     else {$self->{_include}='location';}
+
+## Added by Michalis@linuxmail.org to manipulate non-us mails
+   if ($param{'TextCharset'}) {
+     $self->{_textcharset}=$param{'TextCharset'};
+  	  delete $param{'TextCharset'};
+    }
+   else {
+     $self->{_textcharset}='iso-8859-1';
+    }
+   if ($param{'HTMLCharset'}) {
+     $self->{_htmlcharset}=$param{'HTMLCharset'};
+	  delete $param{'HTMLCharset'};
+    }
+   else {
+     $self->{_htmlcharset}='iso-8859-1';
+	 }
+   if ($param{'TextEncoding'}) {
+     $self->{_textencoding}=$param{'TextEncoding'};
+	  delete $param{'TextEncoding'};
+    }
+   else {
+     $self->{_textencoding}='7bit';
+    }
+   if ($param{'HTMLEncoding'}) {
+     $self->{_htmlencoding}=$param{'HTMLEncoding'};
+	  delete $param{'HTMLEncoding'};
+    }
+   else {
+     $self->{_htmlencoding}='quoted-printable';
+    }
+## End. Default values remain as they were initially set.
+## No need to change existing scripts if you send US-ASCII. 
+## If you DON't send us-ascii, you wouldn't be able to use 
+## MIME::Lite::HTML anyway :-)
 
     # Set proxy to use to get file
     if ($param{'Proxy'})
@@ -319,9 +339,9 @@ sub build_mime_object
     # Create part for HTML
     my $part = new MIME::Lite
       'Type'      =>'TEXT',
-      'Encoding'=>'quoted-printable',
+      'Encoding'  => $self->{_htmlencoding},
       'Data'      =>$html;
-    $part->attr("content-type"=> "text/html; charset=iso-8859-1");
+    $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
     # Remove some header for Eudora client in HTML and related part
     $part->replace("MIME-Version" => "");
     $part->replace('X-Mailer' =>"");
@@ -332,9 +352,10 @@ sub build_mime_object
       {
 	$txt_part = new MIME::Lite 
 	  'Type'      => 'TEXT',  
-	  'Encoding'  => '7bit', 
+	  'Encoding'  => $self->{_textencoding}, 
 	  'Data'      => $txt;
-	$txt_part->attr("content-type"=> "text/plain; charset=us-ascii");
+	$txt_part->attr("content-type" => 
+			"text/plain; charset=".$self->{_textcharset});
 	# Remove some header for Eudora client
 	$txt_part->replace("MIME-Version" => "");
 	$txt_part->replace("X-Mailer" => "");
@@ -346,7 +367,8 @@ sub build_mime_object
     if (!$txt and !@mail)
       {
 	$mail = new MIME::Lite (%$self->{_param}); 
-	$mail->attr("content-type"=> "text/html");
+	$mail->attr("content-type" => 
+		    "text/html; charset=".$self->{_htmlcharset});
 	$mail->data($html);
       }
     # If images and html and no text, multipart/related
@@ -579,7 +601,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 =head1 DESCRIPTION
 
@@ -733,13 +755,22 @@ is not recognize, multipart/alternative can be read by the most of mail client.
 
 Create a new instance of MIME::Lite::HTML.
 
-The hash can have this key : [Proxy], [Debug], [IncludeType], [HashTemplate]
+The hash can have this key : [Proxy], [Debug], [IncludeType], [HashTemplate], 
+[Charset], [TextEncoding]
 
-Proxy is url of proxy to use. Ex: 'Proxy' => 'http://192.168.100.166:8080'
+=over
 
-Debug is trace to stdout during parsing. Ex: 'Debug' => 1 
+=item Proxy
 
-IncludeType is method to use when finding images:
+... is url of proxy to use. Ex: 'Proxy' => 'http://192.168.100.166:8080'
+
+=item Debug 
+
+... is trace to stdout during parsing. Ex: 'Debug' => 1 
+
+=item IncludeType 
+
+... is method to use when finding images:
 
 =over
 
@@ -758,7 +789,9 @@ so images are fetch when user read mail. (Server must be reachable !)
 
 =back
 
-$hash{'HashTemplate'} is a reference to a hash. If present, MIME::Lite::HTML 
+=item $hash{'HashTemplate'} 
+
+... is a reference to a hash. If present, MIME::Lite::HTML 
 will substitute <? $name ?> with $hash{'HashTemplate'}{'name'} when parse url 
 to send. $hash{'HashTemplate'} can be used too for include data for subelement.
 Ex:
@@ -769,11 +802,38 @@ When module find the image http://www.alianwebserver.com/images/sommaire.gif
 in buffer, it don't get image with LWP but use data found in 
 $hash{'HashTemplate'}.
 
+=item TextCharset 
+
+... is the character set to use for the text part. 
+I.E. 'TextCharset' => 'iso-8859-7' for Greek. If none specified, the default 
+is used (iso-8859-1).
+
+=item HTMLCharset 
+
+... is the character set to use for the html part. 
+I.E. 'HTMLCharset' => 'iso-8859-7' for Greek. If none specified, the default 
+is used (iso-8859-1). Take care, as that option does NOT change the character 
+set of the HTML page, it only changes the character set of the mime part.
+
+=item TextEncoding 
+
+... is the Encoding to be used for the text part (if such a part 
+exists). For example: 'TextEncoding' => 'base64'. If none specified, the 
+default is used (7bit).
+
+=item HTMLEncoding 
+
+... is the Encoding to be used for the html part. 
+I.E : 'HTMLEncoding' => 'base64'. If none specified, the default is used 
+(quoted-printable).
+
+=back
+
 Others keys are use with MIME::Lite constructor.
 
 This MIME-Lite keys are: Bcc, Encrypted, Received, Sender, Cc, From,
 References, Subject, Comments, Keywords, Reply-To To, Content-*,
-Message-ID,Resent-*, X-*,Date,MIME-Version,Return-Path,
+Message-ID,Resent-*, X-*,Date, MIME-Version, Return-Path,
 Organization
 
 =item parse($html, [$url_txt], [$url_base])
@@ -898,6 +958,7 @@ If no errors where found, it'll return undef.
 
 =head1 AUTHOR
 
-Alain BARBET alian@alianwebserver.com
+Alain BARBET alian@alianwebserver.com , see file Changes for helpers.
 
 =cut
+
