@@ -1,5 +1,18 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.8  2001/10/29 19:44:11 alian
+
+- From Emiliano Bruni <bruni@micso.it>:
+  - Modify css link search for match file with no .css extension
+  - Now $html in parse may be empty. It will be sent a simple message
+    containing just text
+  - Correct bug in relative url replace that lost space between "a" and
+     "href"
+- From Alian:
+  - Correct bug with empty link a href
+  - Add pod doc for win install (ppm)
+  - Update example to do a "Send this page to a friend"
+	    
 1.7  2001/10/23 21:52:54  alian
  - Correct bug with empty background image
 

@@ -5,6 +5,18 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.8  2001/10/29 18:44:11  alian
+# - From Emiliano Bruni <bruni@micso.it>:
+#  - Modify css link search for match file with no .css extension
+#  - Now $html in parse may be empty. It will be sent a simple message
+#    containing just text
+#  - Correct bug in relative url replace that lost space between "a" and
+#    "href"
+# - From Alian:
+#  - Correct bug with empty link
+#  - Add pod doc for win install (ppm)
+#  - Update example to do a "Send this page to a friend"
+#
 # Revision 1.7  2001/10/23 21:52:54  alian
 # - Correct bug with empty background image
 #
@@ -68,7 +80,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.7 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.8 $ ' =~ /(\d+\.\d+)/)[0];
 
 #------------------------------------------------------------------------------
 # new
@@ -193,7 +205,7 @@ sub parse
             }
           else {$gabarit_txt=$url_txt;}
           }
-     return if (!$gabarit);
+     goto BUILD_MESSAGE unless $gabarit;
      # Get all images and create part for each of them
      my $analyseur = HTML::LinkExtor->new;
      $analyseur->parse($gabarit);
@@ -214,13 +226,13 @@ sub parse
 	 chomp $urlAbs; # Sometime a strange cr/lf occur
 	 # Replace relative href found to absolute one
 	 if ( ($$url[0] eq 'a')
-	      && ($$url[1] eq 'href')
-	      && ($$url[2]!~m!^http://!)
+	      && ($$url[1] eq 'href') && ($$url[2])
+	      && ( ($$url[2]!~m!^http://!) && ($$url[2]!~m!^mailto:!))
 	      && (!$url_remplace{$urlAbs}) )
 	   {
        	     $gabarit=~s/\s href= [\"']? $$url[2] [\"']?
-                        /href="$urlAbs"/gimx;
-	     print "Replace ", $$url[2]," with ",$urlAbs,"\n" 
+                        / href="$urlAbs"/gimx;
+	     print "Replace ",$$url[2]," with ",$urlAbs,"\n" 
 	       if ($self->{_DEBUG});
 	     $url_remplace{$urlAbs}=1;
            }
@@ -302,7 +314,7 @@ sub parse
      # Replace relative url for image with absolute
      sub pattern_image 
        {return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
-     
+
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
        {$gabarit=~s/<img ([^<>]*) src= (["']?) ([^"'> ]* )(["']?)
@@ -310,15 +322,17 @@ sub parse
      # Else just make a absolute url
      else {$gabarit=~s/<img ([^<>]*) src= (["']?)([^"'> ]*) (["']?)
 	              /pattern_image($1,$3,$racinePage)/iegx;}
-     
+
+   BUILD_MESSAGE:
      # Substitue value in template if needed
      if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
        {
-	 $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});
+	 $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE}) 
+	   if ($gabarit);
 	 $gabarit_txt=$self->fill_template($gabarit_txt,
 					   $self->{_HASH_TEMPLATE});
        }
-     
+
      # Create MIME-Lite object
      $self->build_mime_object($gabarit,$gabarit_txt,@mail);
 
@@ -367,15 +381,27 @@ sub build_mime_object
 	$txt_part->replace("X-Mailer" => "");
 	$txt_part->replace("Content-Disposition" => "");
       }
-    
+    # Only text. No Html
+    if ($txt and !$html) 
+	{
+	  my $ref=$self->{_param};
+        # create simple e-mail.
+        $mail = new MIME::Lite (%$ref);
+        $mail->data($txt);
+        # Remove some header for Eudora client
+	  $mail->replace("MIME-Version" => "");
+	  $mail->replace("X-Mailer" => "");
+	  $mail->replace("Content-Disposition" => "");
+	}
     # Set content type of main part
     # If only HTML part create a text/html part
-    if (!$txt and !@mail)
+    elsif (!$txt and !@mail)
       {
-	$mail = new MIME::Lite (%$self->{_param}); 
-	$mail->attr("content-type" => 
-		    "text/html; charset=".$self->{_htmlcharset});
-	$mail->data($html);
+	  my $ref = $self->{_param};
+	  $mail = new MIME::Lite (%$ref);
+	  $mail->attr("content-type" => 
+			  "text/html; charset=".$self->{_htmlcharset});
+	  $mail->data($html);
       }
     # If images and html and no text, multipart/related
     elsif (@mail and !$txt)
@@ -440,7 +466,7 @@ sub include_css
 	  '<!--'."\n".$res2->content.
 	    "\n-->\n</style>\n";
       }
-    $gabarit=~s/<link([^<>]*?)href="?([^\" ]*css)"?([^>]*)>
+    $gabarit=~s/<link([^<>]*?)href="?([^\" ]*)"?([^>]*)>
       /$self->pattern_css($2,$1,$3,$root)/iegmx;
     print "Done CSS\n" if ($self->{_DEBUG});
     return $gabarit;
@@ -594,20 +620,28 @@ sub errstr
 MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 SYNOPSIS
- 
-  use MIME::Lite::HTML;
 
+  #!/usr/bin/perl -w 
+  # A cgi program that do "Mail this page to a friend";
+  # Call this script like this :
+  # script.cgi?email=myfriend@isp.com&url=http://www.go.com
+  use strict;
+  use CGI qw/:standard/;
+  use CGI::Carp qw/fatalsToBrowser/;
+  use MIME::Lite::HTML;
+  
   my $mailHTML = new MIME::Lite::HTML
      From     => 'MIME-Lite@alianwebserver.com',
-     To       => 'alian@saturne',
-     Subject => 'Mail in HTML with images';
-
-  $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com');
+     To       => param('email'),
+     Subject => 'Your url: '.param('url');
+  
+  my $MIMEmail = $mailHTML->parse(param('url'));
   $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
+  print header,"Mail envoye (", param('url'), " to ", param('email'),")<br>\n";
 
 =head1 VERSION
 
-$Revision: 1.7 $
+$Revision: 1.8 $
 
 =head1 DESCRIPTION
 
@@ -752,6 +786,15 @@ module, give me some feedback ! If you want be sure that your mail can be
 read by maximum of people, (so not only OE and Netscape), don't include 
 images in your mail, and use a text buffer too. If multipart/related mail 
 is not recognize, multipart/alternative can be read by the most of mail client.
+
+=head2 Install on WinX with ActiveState / PPM
+
+Just do in DOS "shell":
+
+  c:\ ppm
+  > set repository alian http://www.alianwebserver.com/perl/CPAN
+  > install MIME-Lite-HTML
+  > quit
 
 =head1 Public Interface
 

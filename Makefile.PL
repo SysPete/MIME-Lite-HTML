@@ -10,4 +10,9 @@ WriteMakefile(
 				HTML::LinkExtor => 0,
 				URI::URL	=> 0
 			}, # e.g., Module::Name => 1.1
-);
+     ($] ge '5.005') ? 
+		  (
+		   'AUTHOR' => 'Alain BARBET (alian@cpan.org)',
+		   'ABSTRACT' => 'Provide routine to transform a HTML page '.
+		                 'in a MIME-Lite mail') : ()
+		 );
