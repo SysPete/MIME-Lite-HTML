@@ -4,16 +4,16 @@ Revision history for Perl extension MIME::Lite::HTML.
      - original version; created by h2xs 1.20 with options
           -X -n MIME::Lite::HTML
 
-0.2   2000/10/26 20:08:06 
+0.2   2000/10/26 20:08:06
      - Update remplacement of relative url
 
 0.3   2000/10/26 22:55:46
      - Add parsing for form (action and input image)
-     
+
 0.4   2000/11/12 18:52:56
      - Add feature of replace word in gabarit (for newsletter by example)
      - Include body background
-     
+
 0.5   2000/11/13 21:36:58
      - Arg, forgot cariage return in fill_template :-(
 
@@ -23,6 +23,8 @@ Revision history for Perl extension MIME::Lite::HTML.
     is not supported by client.
     - Include other background than body
 
-
-
-
+0.7  2000/12/30 20:22:27  alian
+    - Allow to send a string of text to the parse function, instead of an url
+    - Add feature to put data on the fly when image are available only on memory
+    - Put comments on print when buffer find url
+    Ideas suggested by mtveerman@mindless.com
