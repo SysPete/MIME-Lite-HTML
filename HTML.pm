@@ -5,6 +5,14 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.1  2001/03/04 22:29:07  alian
+# - Correct an error with background image quote
+#
+# Revision 1.0  2001/03/04 22:13:19  alian
+# - Correct major problem with Eudora (See Clients tested in documentation)
+# - Build final MIME-Lite object with knowledge of RFC-2257
+# - Add some POD documentation and references
+#
 # Revision 0.9  2001/02/02 01:15:35  alian
 # Correct some other things with error handling (suggested by Steve Harvey <sgh@vex.net>
 #
@@ -46,7 +54,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.9 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.1 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
@@ -56,18 +64,22 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
   use MIME::Lite;
   use MIME::Lite::HTML;
-  
+
   my $mailHTML = new MIME::Lite::HTML
        From     => 'MIME-Lite@alianwebserver.com',
      To       => 'alian@jupiter',
      Subject => 'Mail in HTML with images';
-     
+
   $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com');
   $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
 
 =head1 DESCRIPTION
 
 This module provide routine to transform a HTML page in MIME::Lite mail.
+So you need this module to use MIME-Lite-HTML possibilities
+
+=head2 What's happen ?
+
 The job done is:
 
 =over
@@ -94,12 +106,68 @@ Replace relative url with absolute one
 
 =back
 
+=head2 Usage
+
 It can be used by example in a HTML newsletter. You make a classic HTML page,
 and give just url to MIME::Lite::HTML.
 
+=head2 Construction
+
+MIME-Lite-HTML use a MIME-Lite object, build with
+
+  --> multipart/alternative
+  ------> text/plain if present
+  ------> multipart/related
+  -------------> text/html
+  -------------> each images
+
+=head2 Documentation
+
+Additionnal documentation can be found here:
+
+=over
+
+=item *
+
+MIME-lite module
+
+=item *
+
+RFC 822, RFC 1521, RFC 1522 and specially RFC 2257 (MIME Encapsulation
+of Aggregate Documents, such as HTML)
+
+=back
+
+=head2 Clients tested
+
+HTML in mail is not a standart, so this module can't work with all mail clients.
+
+Clients who has been tested:
+
+=over
+
+=item *
+
+Outlook Express : 100% ok
+
+=item *
+
+Netscape Messager : 100% ok
+
+=item *
+
+Eudora : Two problems : Two additional headers will be displayed in HTML part
+and Eudora didn't recognize multipart/alternative part as describe in RFC 2257
+so text and HTML part will be displayed both, text part in first. Version 1.0 of
+this module correct major problem of headers with image include in HTML part.
+May be a solution is not use mail text with MIME-Lite-HTML, and use MIME-Lite
+for text mail. Ask your users what they want ...
+
+=back
+
 =head1 VERSION
 
-$Revision: 0.9 $
+$Revision: 1.1 $
 
 =head1 METHODS
 
@@ -133,17 +201,14 @@ sub new
      my $self = {};
      bless $self, $class;
      my %param = @_;
-
      # Agent name
-     $self->{_AGENT} = new LWP::UserAgent 'MIME-Lite-HTML-0-6', 'alian@alianwebserver.com';
-
+     $self->{_AGENT} = new LWP::UserAgent "MIME-Lite-HTML $VERSION", 'alian@alianwebserver.com';
      # Set debug level
      if ($param{'Debug'})
           {
           $self->{_DEBUG} = 1;
           delete $param{'Debug'};
           }
-
      # Set proxy to use to get file
      if ($param{'Proxy'})
           {
@@ -151,7 +216,6 @@ sub new
           print "Set proxy for http : ", $param{'Proxy'},"\n" if ($self->{_DEBUG});
           delete $param{'Proxy'};
           }
-
      # Set hash to use with template
      if ($param{'HashTemplate'})
           {
@@ -159,11 +223,10 @@ sub new
           $self->{_HASH_TEMPLATE}= $param{'HashTemplate'};
           delete $param{'HashTemplate'};
           }
-
-     # Create MIME::Lite part
-     $param{'Type'}='multipart/alternative'; #related
-     #$param{'Type'}='multipart/related';
-     my $mail = new MIME::Lite (%param);
+     # Create multipart/alternative part
+     $param{'Type'}='multipart/alternative';
+     my $mail = new MIME::Lite (%param);  MIME::Lite->quiet(1);
+     $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
      $self->{_MAIL} = $mail;
 
      return $self;
@@ -172,6 +235,8 @@ sub new
 =head2 parse($html, [$url_txt], [$url_base])
 
 Subroutine used for created HTML mail with MIME-Lite
+
+Parameters:
 
 =over
 
@@ -185,10 +250,11 @@ or '<img src=toto.gif>'.
 =item $url_txt
 
 Url of text part to send for person who doesn't support HTML mail.
+As $html, $url_txt can be a simple buffer.
 
 =item $url_base
 
-$url_base is used if $url is a buffer, for get element found in HTML buffer.
+$url_base is used if $html is a buffer, for get element found in HTML buffer.
 
 =back
 
@@ -257,7 +323,7 @@ sub parse
           # Replace images background
           elsif ($$url[1] eq 'background')
                {
-               my $v ='background=\'cid:'."$urlAbs".'\'';
+               my $v ="background=\"cid:$urlAbs\"";
                $gabarit=~s/background=\"$$url[2]\"/$v/im;
                print "Get ", $urlAbs,"\n" if $self->{_DEBUG};
                my $res2 = $self->{_AGENT}->request
@@ -298,38 +364,57 @@ sub parse
           my $mail = new MIME::Lite
                Data => $buff1,
                Encoding =>'base64';
+          $mail->replace("X-Mailer" => "");
+          my $t = '<'.$urlAbs.'>';
           $mail->attr("Content-type"=>$type);
-          $mail->attr('Content-ID'=>$urlAbs);
+          $mail->attr('Content-ID' =>$t);
           push(@mail,$mail);
           }
-
      # Replace in HTML link with image with cid:key
      sub pattern_image {return '<img '.$_[0].'src="cid:'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
      $gabarit=~s/<img([^<>]*)src=(["']?)([^"'> ]*)(["']?)/pattern_image($1,$3,$racinePage)/ieg;
-
      # Substitue value in template if needed
      if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
           {$gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});}
-
      # Create part for HTML
      my $part = new MIME::Lite
           'Type'      =>'TEXT',
+          'Encoding'=>'quoted-printable',
           'Data'      =>$gabarit;
      $part->attr("content-type"=> "text/html; charset=iso-8859-1");
-
-     # Create part for text if needed
-     my $part2 = new MIME::Lite
-          'Type'      =>'TEXT',
-          'Data'      =>$gabarit_txt if ($gabarit_txt);
-
-     my $email = new MIME::Lite ('Type'=>'multipart/related');
-     $email->attach($part);
-     foreach (@mail) {$email->attach($_);} # Attach list of part
-
-     $self->{_MAIL}->attach($part2) if ($part2);
-     $self->{_MAIL}->attach($email);
+     # Create related part
+     my $email2 = new MIME::Lite ('Type'=>'multipart/related');
+     # Remove some header for Eudora client
+     $part->replace("MIME-Version" => "");
+     $part->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
+     $email2->replace("Content-transfer-encoding" => "");
+     $email2->replace("MIME-Version" => "");
+     $email2->replace("X-Mailer" => "");
+    # Attach HTML part to related part
+     $email2->attach($part);
+     # Attach each image to related part
+     foreach (@mail) {$email2->attach($_);} # Attach list of part
+     if ($gabarit_txt)
+      {
+      # Create part for text if needed
+      my $part2 = new MIME::Lite
+          'Type'        => 'TEXT',
+           'Encoding' => '7bit',
+            'Data'         => $gabarit_txt;
+      $part2->attr("content-type"=> "text/plain; charset=us-ascii");
+      # Remove some header for Eudora client
+      $part2->replace("MIME-Version" => "");
+      $part2->replace("X-Mailer" => "");
+      # Attach text part to relative part
+      $self->{_MAIL}->attach($part2);
+      }
+     # Attach related part to alternative part
+     $self->{_MAIL}->attach($email2);
+     # return main MIME-Lite object
      return $self->{_MAIL};
      }
+
+=head1 Private methods
 
 =head2 include_css($gabarit,$root)
 
@@ -339,10 +424,10 @@ Search in HTML buffer ($gabarit) to remplace call to extern CSS file
 with his content. $root is original absolute url where css file will
 be found.
 
-=cut 
+=cut
 
 sub include_css
-     {     
+     {
      my ($self,$gabarit,$root)=@_;
      sub pattern_css
           {
@@ -360,7 +445,7 @@ sub include_css
      return $gabarit;
      }
 
-=head2 include_javascript($gabarit,$root) 
+=head2 include_javascript($gabarit,$root)
 
 (private)
 
@@ -483,7 +568,7 @@ sub fill_template
           }
        return join("\n",@buf);
      }
-     
+
 =head1 Error Handling
 
 The set_err routine is used privately. You can ask for an array of all the errors

@@ -35,3 +35,8 @@ Revision history for Perl extension MIME::Lite::HTML.
 0.9  2001/02/02 01:15:35  alian
     Correct some other things with error handling (suggested by Steve Harvey
     <sgh@vex.net>)
+
+1.0  2001/03/04 22:13:19  alian
+    - Correct major problem with Eudora (See Clients tested in documentation)
+    - Build final MIME-Lite object with knowledge of RFC-2257
+    - Add some POD documentation and references
