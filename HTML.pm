@@ -5,6 +5,14 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.2  2001/03/20 22:35:56  alian
+# - Add lot of pod documentation
+# - Change how final mail is build:
+#  If no images are found when parse routine is used, this modules did'nt
+#  use a multipart/related part, but a text/html part. Thus, we can reach
+#  a max. of mail clients (See "clients tested" in documentation).
+# - Add size function
+#
 # Revision 1.1  2001/03/04 22:29:07  alian
 # - Correct an error with background image quote
 #
@@ -54,7 +62,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.1 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.2 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
@@ -72,6 +80,10 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
   $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com');
   $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
+
+=head1 VERSION
+
+$Revision: 1.2 $
 
 =head1 DESCRIPTION
 
@@ -104,6 +116,10 @@ Include external CSS,Javascript file
 
 Replace relative url with absolute one
 
+=item *
+
+Build the final MIME-Lite object with each part found
+
 =back
 
 =head2 Usage
@@ -113,13 +129,21 @@ and give just url to MIME::Lite::HTML.
 
 =head2 Construction
 
-MIME-Lite-HTML use a MIME-Lite object, build with
+MIME-Lite-HTML use a MIME-Lite object, and RFC2257 construction:
+
+If images are present, construction use is:
 
   --> multipart/alternative
   ------> text/plain if present
   ------> multipart/related
   -------------> text/html
   -------------> each images
+
+If no images is present, this is that:
+
+  ---> multipart/alternative
+  -------> text/plain if present
+  -------> text/html
 
 =head2 Documentation
 
@@ -140,38 +164,59 @@ of Aggregate Documents, such as HTML)
 
 =head2 Clients tested
 
-HTML in mail is not a standart, so this module can't work with all mail clients.
-
-Clients who has been tested:
+HTML in mail is not full supported so this module can't work with all email clients.
+If some client recognize HTML, they didn't support images include in HTML.
+So in fact, they recognize multipart/relative but not multipart/related.
 
 =over
 
-=item *
+=item Netscape Messager (Linux-Windows)
 
-Outlook Express : 100% ok
+100% ok
 
-=item *
+=item Outlook Express (Windows)
 
-Netscape Messager : 100% ok
+100% ok
 
-=item *
+=item Eudora (Windows)
 
-Eudora : Two problems : Two additional headers will be displayed in HTML part
-and Eudora didn't recognize multipart/alternative part as describe in RFC 2257
-so text and HTML part will be displayed both, text part in first. Version 1.0 of
-this module correct major problem of headers with image include in HTML part.
-May be a solution is not use mail text with MIME-Lite-HTML, and use MIME-Lite
-for text mail. Ask your users what they want ...
+If this module just send HTML and text, (without images), 100% ok.
+
+With images, Eudora didn't recognize multipart/related part as describe in RFC 2257,
+even if he can read his own HTML mail. So if images are present in HTML part,
+text and HTML part will be displayed both, text part in first. Two additional
+headers will be displayed in HTML part too in this case. Version 1.0 of this
+module correct major problem of headers displayed with image include in
+HTML part.
+
+=item KMail (Linux)
+
+If this module just send HTML and text, (without images), 100% ok.
+
+In other case, Kmail didn't support image include in HTML. So if you set in KMail
+"Prefer HTML to text", it display HTML with images broken. Otherwise, it display
+text part.
+
+=item Pegasus (Windows)
+
+If this module just send HTML and text, (without images), 100% ok.
+
+Pegasus didn't support images in HTML. When it find a multipart/related message,
+it ignore it, and display text part.
 
 =back
 
-=head1 VERSION
+If you find others mail client who support (or not support) MIME-Lite-HTML
+module, give me some feedback ! If you want be sure that your mail can be read by
+maximum of people, (so not only OE and Netscape), don't include images in your mail,
+and use a text buffer too. If multipart/related mail is not recognize, multipart/alternative
+can be read by the most of mail client.
 
-$Revision: 1.1 $
+=head1 Public Interface
 
-=head1 METHODS
+=over
 
-=head2 new(%hash)
+=item new(%hash)
 
 Create a new instance of MIME::Lite::HTML.
 
@@ -191,7 +236,6 @@ or $hash{'HashTemplate'}{'http://www.alianwebserver.com/script.js'}="alert("Hell
 
 When module find the image http://www.alianwebserver.com/images/sommaire.gif in buffer,
 it don't get image with LWP but use data found in $hash{'HashTemplate'}.
-
 
 =cut
 
@@ -225,14 +269,16 @@ sub new
           }
      # Create multipart/alternative part
      $param{'Type'}='multipart/alternative';
-     my $mail = new MIME::Lite (%param);  MIME::Lite->quiet(1);
+     my $mail = new MIME::Lite (%param);
+     # Ok I hope I known what I do ;-)
+     MIME::Lite->quiet(1);
      $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
      $self->{_MAIL} = $mail;
 
      return $self;
      }
 
-=head2 parse($html, [$url_txt], [$url_base])
+=item parse($html, [$url_txt], [$url_base])
 
 Subroutine used for created HTML mail with MIME-Lite
 
@@ -373,34 +419,95 @@ sub parse
      # Replace in HTML link with image with cid:key
      sub pattern_image {return '<img '.$_[0].'src="cid:'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
      $gabarit=~s/<img([^<>]*)src=(["']?)([^"'> ]*)(["']?)/pattern_image($1,$3,$racinePage)/ieg;
+
      # Substitue value in template if needed
      if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
           {$gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});}
+
+     # Create MIME-Lite object
+     $self->build_mime_object($gabarit,$gabarit_txt,@mail);
+
+     return $self->{_MAIL};
+     }
+
+=item size()
+
+Display size of mail in characters (so octets) that will be send.
+(So use it *after* parse method). Use this method for control
+size of mail send, I personnaly hate receive 500k by mail.
+I pay for a 33k modem :-(
+
+=cut
+
+sub size
+  {
+  my ($self)=shift;
+  return length($self->{_MAIL}->as_string);
+  }
+
+
+=back
+
+=head1 Private methods
+
+=over
+
+=item build_mime_object($html,[$txt],[@mail])
+
+(private)
+
+Build the final MIME-Lite object to send with each part read before
+
+=over
+
+=item $html
+
+Buffer of HTML part
+
+=item $txt
+
+Buffer of text part
+
+=item @mail
+
+List of images attached to HTML part. Each item is a MIME-Lite object.
+
+=back
+
+See "Construction" in "Description" for know how MIME-Lite object is build.
+
+=cut
+
+sub build_mime_object
+  {
+  my ($self,$html,$txt,@mail)=@_;
      # Create part for HTML
      my $part = new MIME::Lite
           'Type'      =>'TEXT',
           'Encoding'=>'quoted-printable',
-          'Data'      =>$gabarit;
+          'Data'      =>$html;
      $part->attr("content-type"=> "text/html; charset=iso-8859-1");
-     # Create related part
-     my $email2 = new MIME::Lite ('Type'=>'multipart/related');
-     # Remove some header for Eudora client
-     $part->replace("MIME-Version" => "");
-     $part->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
-     $email2->replace("Content-transfer-encoding" => "");
-     $email2->replace("MIME-Version" => "");
-     $email2->replace("X-Mailer" => "");
-    # Attach HTML part to related part
-     $email2->attach($part);
-     # Attach each image to related part
-     foreach (@mail) {$email2->attach($_);} # Attach list of part
-     if ($gabarit_txt)
+
+     my $email2;
+     # Create related part if images
+     if (@mail)
+      {
+      $email2 = new MIME::Lite ('Type'=>'multipart/related');
+      # Remove some header for Eudora client in HTML and related part
+      $part->replace("MIME-Version" => "");
+      $part->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
+      $email2->replace("Content-transfer-encoding" => "");
+      $email2->replace("MIME-Version" => "");
+      $email2->replace("X-Mailer" => "");
+      # Attach HTML part to related part
+      $email2->attach($part);
+      # Attach each image to related part
+      foreach (@mail) {$email2->attach($_);} # Attach list of part
+      }
+     if ($txt)
       {
       # Create part for text if needed
-      my $part2 = new MIME::Lite
-          'Type'        => 'TEXT',
-           'Encoding' => '7bit',
-            'Data'         => $gabarit_txt;
+      my $part2 = new MIME::Lite 'Type'  => 'TEXT',  'Encoding' => '7bit', 'Data'  => $txt;
       $part2->attr("content-type"=> "text/plain; charset=us-ascii");
       # Remove some header for Eudora client
       $part2->replace("MIME-Version" => "");
@@ -409,14 +516,12 @@ sub parse
       $self->{_MAIL}->attach($part2);
       }
      # Attach related part to alternative part
-     $self->{_MAIL}->attach($email2);
-     # return main MIME-Lite object
-     return $self->{_MAIL};
-     }
+     if (@mail)  {$self->{_MAIL}->attach($email2);}
+     # Attach HTML part to alternative part
+     else {$self->{_MAIL}->attach($part);}
+    }
 
-=head1 Private methods
-
-=head2 include_css($gabarit,$root)
+=item include_css($gabarit,$root)
 
 (private)
 
@@ -440,12 +545,12 @@ sub include_css
                '<!--'."\n".$res2->content.
                "\n-->\n</style>\n";
           }
-     $gabarit=~s/<link([^<>]*?)href="?([^" ]*css)"?([^>]*)>/$self->pattern_css($2,$1,$3,$root)/iegm;     
+     $gabarit=~s/<link([^<>]*?)href="?([^" ]*css)"?([^>]*)>/$self->pattern_css($2,$1,$3,$root)/iegm;
      print "Done CSS\n" if $self->{_DEBUG};
      return $gabarit;
      }
 
-=head2 include_javascript($gabarit,$root)
+=item include_javascript($gabarit,$root)
 
 (private)
 
@@ -471,13 +576,13 @@ sub include_javascript
                '<!--'."\n".$content.
                "\n-->\n</script>\n";
           }
-     $gabarit=~s/<script([^>]*)src="?([^" ]*js)"?([^>]*)>/$self->pattern_js($2,$1,$3,$root)/iegm;     
+     $gabarit=~s/<script([^>]*)src="?([^" ]*js)"?([^>]*)>/$self->pattern_js($2,$1,$3,$root)/iegm;
      print "Done Javascript\n" if $self->{_DEBUG};
      return $gabarit;
      }
 
 
-=head2 input_image($gabarit,$root) 
+=item input_image($gabarit,$root)
 
 (private)
 
@@ -489,7 +594,7 @@ Return final buffer and list of MIME::Lite part
 
 sub input_image
      {
-     my ($self,$gabarit,$root)=@_;     
+     my ($self,$gabarit,$root)=@_;
      my @mail;
      sub pattern_input_image
           {
@@ -498,14 +603,14 @@ sub input_image
           my $ur = URI::URL->new($url, $base)->abs;
           # Create MIME type
           if (lc($ur)=~/gif$/) {$type="image/gif";}
-          else {$type = "image/jpg";}          
+          else {$type = "image/jpg";}
           my $res = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
           # Create part
           my $mail = new MIME::Lite
                Data => $res->content,
                Encoding =>'base64';
           $mail->attr("Content-type"=>$type);
-          $mail->attr('Content-ID'=>$ur);     
+          $mail->attr('Content-ID'=>$ur);
           push(@$ref_tab_mail,$mail);
           return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;
           }
@@ -515,7 +620,7 @@ sub input_image
      }
 
 
-=head2 link_form($gabarit,$root) 
+=item link_form($gabarit,$root)
 
 (private)
 
@@ -525,7 +630,7 @@ Replace link to formulaire with absolute link
 
 sub link_form
      {
-     my ($self,$gabarit,$root)=@_;     
+     my ($self,$gabarit,$root)=@_;
      my @mail;
      sub pattern_link_form
           {
@@ -539,7 +644,7 @@ sub link_form
      return $gabarit;
      }
 
-=head2 fill_template($masque,$vars)
+=item fill_template($masque,$vars)
 
  $masque : Path of template
  $vars : hash ref with keys/val to substitue
@@ -568,6 +673,8 @@ sub fill_template
           }
        return join("\n",@buf);
      }
+
+=back
 
 =head1 Error Handling
 

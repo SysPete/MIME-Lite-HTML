@@ -4,5 +4,5 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'		=> 'MIME::Lite::HTML',
     'VERSION_FROM'	=> 'HTML.pm', # finds $VERSION
-    'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'		=> {MIME::Lite=>1.0}, # e.g., Module::Name => 1.1
 );

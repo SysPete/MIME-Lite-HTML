@@ -25,10 +25,22 @@ this README file and type the following:
    make install
 
 If you can't do that, you can put HTML.pm file in
-directory $root/MIME/Lite/HTML.pm and then put use lib 
-$root in your program
+directory $root/MIME/Lite/HTML.pm and then put use lib
+$root in your program (make same thing if you haven't MIME-Lite
+module).
+So it give:
+$root/MIME/Lite/HTML.pm
+$root/MIME/Lite.pm
 
-REQUIREMENT ? 
+and in your script:
+
+#!/usr/bin/perl
+$root='/home/alian/mylibperl'
+use lib $root;
+use MIME::Lite;
+use MIME::Lite::HTML;
+
+REQUIREMENT ?
 
 libnet, MIME::Lite
 
