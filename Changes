@@ -1,5 +1,8 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.21  2004/04/15 22:59:33  alian
+- fix for 1.20 and bad ref for tests
+
 1.20  2004/04/14 21:26:51  alian
 - fix error on last version
 - add test and grow coverage

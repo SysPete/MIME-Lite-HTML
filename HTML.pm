@@ -5,8 +5,11 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.21  2004/04/15 22:59:33  alian
+# fix for 1.20 and bad ref for tests
+#
 # Revision 1.20  2004/04/14 21:26:51  alian
-# fix error on last version
+# - fix error on last version
 #
 # Revision 1.19  2004/03/16 15:18:57  alian
 # - Add Url param in new for direct call of parse & send
@@ -42,7 +45,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.20 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.21 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -686,7 +689,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.20 $
+$Revision: 1.21 $
 
 =head1 DESCRIPTION
 

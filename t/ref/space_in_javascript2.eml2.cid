@@ -7,7 +7,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.20
+X-Mailer: MIME::Lite::HTML 1.21
 
 <html>
 <head>
@@ -54,8 +54,8 @@ var edito = "24//06//2002";
 edito +="";
 
 // edito += "Une nouvelle page d'acceuil pour 1001cartes, notre site de cartes virtuelles... ";
-//edito += " La fÃªte d'HALLOWEEN est passÃ©e, mais les enfants restent dans l'ambiance encore toutes les vacances... ";
-edito += " L'Ã©tÃ© est lÃ , il fait chaud, et c'est bientÃ´t les vacances ! N'oubliez pas d'envoyer une carte postale... ";
+//edito += " La fête d'HALLOWEEN est passée, mais les enfants restent dans l'ambiance encore toutes les vacances... ";
+edito += " L'été est là, il fait chaud, et c'est bientôt les vacances ! N'oubliez pas d'envoyer une carte postale... ";
 
 function verifieUrl()
   {
@@ -115,7 +115,7 @@ function checkMoteur(theForm)
 
   if (theForm.MOT_CLEF.value.length < 2)
   {
-    alert("Tapez au moins 2 caractÃ¨res pour que votre recherche soit pertinente .");
+    alert("Tapez au moins 2 caractères pour que votre recherche soit pertinente .");
     theForm.MOT_CLEF.focus();
     return (false);
   }

@@ -54,6 +54,7 @@ t/ref/space_in_a_href.eml2.extern
 t/ref/space_in_a_href.eml2.location
 t/ref/space_in_a_href.eml3.cid
 t/ref/space_in_a_href.eml3.extern
+t/ref/space_in_a_href.eml3.location
 t/ref/space_in_ccs_href.eml.cid
 t/ref/space_in_ccs_href.eml.extern
 t/ref/space_in_ccs_href.eml.location
@@ -90,3 +91,4 @@ t/ref/space_in_javascript2.eml2.location
 t/ref/space_in_javascript2.eml3.cid
 t/ref/space_in_javascript2.eml3.extern
 t/ref/space_in_javascript2.eml3.location
+META.yml                                 Module meta-data (added by MakeMaker)

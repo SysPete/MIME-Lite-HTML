@@ -5,7 +5,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.20
+X-Mailer: MIME::Lite::HTML 1.21
 
 This is a multi-part message in MIME format.
 
@@ -283,7 +283,7 @@ function banner(msg,ctrlwidth)=0D
 </script>
 	<h1>Alianet Network</h1>
 	<img  src=3D"cid:57374732f646f63732f696d672f736f6d6d616972652e676966@MIME-=
-Lite-HTML-1.20" alt=3D"Alian" border=3D"0">
+Lite-HTML-1.21" alt=3D"Alian" border=3D"0">
 <h2>Intranet</h2>
 <ol>
   <li>  <a href=3D"http://alianwebserver.alianet">Alianwebserver</a>  </li>
@@ -320,7 +320,7 @@ er</a></li>
 </html>
 
 --alian-mime-lite-html
-Content-Id: <57374732f646f63732f696d672f736f6d6d616972652e676966@MIME-Lite-HTML-1.20>
+Content-Id: <57374732f646f63732f696d672f736f6d6d616972652e676966@MIME-Lite-HTML-1.21>
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
 
