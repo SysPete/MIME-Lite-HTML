@@ -11,7 +11,7 @@ my $mailHTML = new MIME::Lite::HTML
   From     => 'MIME-Lite@alianwebserver.com',
   To       => param('email'),
   Subject  => 'Your url: '.param('url'), 
-  Debug    => 1;
+  Debug    => 3;
 
 
 my $MIMEmail = $mailHTML->parse(param('url'));

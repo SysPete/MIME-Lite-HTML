@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.11  2001/12/13 22:42:33  alian
+# - Correct a bug with relative anchor
+#
 # Revision 1.10  2001/11/07 10:52:43  alian
 # - Add feature for get restricted url. Add LoginDetails parameter for that
 # (tks to Leon.Halford@ing-barings.com for idea)
@@ -63,7 +66,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.10 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.11 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -259,10 +262,11 @@ sub parse
 	  chomp $urlAbs; # Sometime a strange cr/lf occur
 
 	  # Replace relative href found to absolute one
-	  if ( ($$url[0] eq 'a') &&
-		 ($$url[1] eq 'href') && ($$url[2]) &&
-		 (($$url[2]!~m!^http://!) && ($$url[2]!~m!^mailto:!)) &&
-		 (!$url_remplace{$urlAbs}) )
+	  if ( ($$url[0] eq 'a') && ($$url[1] eq 'href') && ($$url[2]) &&
+		 (($$url[2]!~m!^http://!) && # un lien non absolu
+		  ($$url[2]!~m!^mailto:!) && # pas les mailto
+		  ($$url[2]!~m!^\#!))     && # ni les ancres
+		 (!$url_remplace{$urlAbs}) ) # ni les urls deja remplacees
 	    {
 		$gabarit=~s/\s href= [\"']? $$url[2] [\"']?
 		           / href="$urlAbs"/gimx;
@@ -691,7 +695,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.10 $
+$Revision: 1.11 $
 
 =head1 DESCRIPTION
 

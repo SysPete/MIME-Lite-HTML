@@ -1,5 +1,8 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.11  2001/12/13 22:42:33  alian
+ - Correct a bug with relative anchor
+
 1.10  2001/11/07 10:52:43  alian
  - Add feature for get restricted url. Add LoginDetails parameter for that
    (tks to Leon.Halford@ing-barings.com for idea)
