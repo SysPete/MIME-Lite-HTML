@@ -28,3 +28,6 @@ Revision history for Perl extension MIME::Lite::HTML.
     - Add feature to put data on the fly when image are available only on memory
     - Put comments on print when buffer find url
     Ideas suggested by mtveerman@mindless.com
+
+0.8  2001/01/21 00:58:48  alian
+	Correct error function

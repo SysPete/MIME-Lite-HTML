@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 0.8  2001/01/21 00:58:48  alian
+# Correct error function
+#
 # Revision 0.7  2000/12/30 20:22:27  alian
 # - Allow to send a string of text to the parse function, instead of an url
 # - Add feature to put data on the fly when image are available only on memory
@@ -40,7 +43,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.7 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 0.8 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
@@ -93,7 +96,7 @@ and give just url to MIME::Lite::HTML.
 
 =head1 VERSION
 
-$Revision: 0.7 $
+$Revision: 0.8 $
 
 =head1 METHODS
 
@@ -491,7 +494,7 @@ If no errors where found, it'll return undef.
 sub set_err {
 my($self,$error) = @_;
 
-my @array = @{$self->{_ERRORS}};
+my @array = @{$self->{_ERRORS}} if ($self->{_ERRORS});
 push @array, $error;
 $self->{_ERRORS} = \@array;
 return 1;
