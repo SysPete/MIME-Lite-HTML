@@ -5,6 +5,11 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.12  2002/01/07 20:18:53  alian
+# - Add replace links for frame & iframe
+# - Correct incorrect parsing in include_css for <LINK REL="SHORTCUT ICON">
+# tag. Tks to doggy@miniasp.com for idea and patch
+#
 # Revision 1.11  2001/12/13 22:42:33  alian
 # - Correct a bug with relative anchor
 #
@@ -66,7 +71,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.11 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.12 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -258,6 +263,7 @@ sub parse
     my (%images_read,%url_remplace);
     foreach my $url (@l)
 	{
+	  #print "[0] $$url[0] \n [1] $$url[1]\n[2]  $$url[2]\n";
 	  my $urlAbs = URI::WithBase->new($$url[2],$racinePage)->abs;
 	  chomp $urlAbs; # Sometime a strange cr/lf occur
 
@@ -275,8 +281,19 @@ sub parse
 		$url_remplace{$urlAbs}=1;
 	    }
 
+	  # For frame & iframe
+	  elsif ( (lc($$url[0] eq 'iframe') || lc($$url[0] eq 'frame')) &&
+		   (lc($$url[1]) eq 'src') && ($$url[2]) )
+	    {
+		$gabarit=~s/\s src= [\"']? $$url[2] [\"']?
+		           / src="$urlAbs"/gimx;
+		print "Replace ",$$url[2]," with ",$urlAbs,"\n"
+		  if ($self->{_DEBUG});
+		$url_remplace{$urlAbs}=1;
+	    }
+
 	  # For background images
-	  elsif (($$url[1] eq 'background') && ($$url[2]))
+	  elsif ((lc($$url[1]) eq 'background') && ($$url[2]))
 	   {
 	     # Replace relative url with absolute
 	     my $v = ($self->{_include} eq 'cid') ? 
@@ -292,7 +309,7 @@ sub parse
 	   }
 
 	  # For flash part (embed)
-	  elsif ($$url[0] eq 'embed' && $$url[4]) 
+	  elsif (lc($$url[0]) eq 'embed' && $$url[4]) 
 	   {
 	     # rebuild $urlAbs
 	     $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
@@ -312,7 +329,7 @@ sub parse
 	  # Need to add "param" to Tagset.pm in the linkElements definition:
 	  # 'param' => ['name', 'value'],
 	  # Tks to tosh@c4.ca for that
-	  elsif ($$url[0] eq 'param' && $$url[2] eq 'movie' && $$url[4])
+	  elsif (lc($$url[0]) eq 'param' && lc($$url[2]) eq 'movie' && $$url[4])
 	    {
 		# rebuild $urlAbs
 		$urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
@@ -493,6 +510,10 @@ sub include_css
     sub pattern_css
       {
 	my ($self,$url,$milieu,$fin,$root)=@_;
+	# Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
+	if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
+        { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
+	# Complete url
 	my $ur = URI::URL->new($url, $root)->abs;
 	print "Include CSS file $ur\n" if $self->{_DEBUG};
 	my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
@@ -695,7 +716,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 =head1 DESCRIPTION
 
