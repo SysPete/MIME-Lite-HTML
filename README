@@ -24,6 +24,10 @@ this README file and type the following:
    make test
    make install
 
+If you can't do that, you can put HTML.pm file in
+directory $root/MIME/Lite/HTML.pm and then put use lib 
+$root in your program
+
 REQUIREMENT ? 
 
 libnet, MIME::Lite

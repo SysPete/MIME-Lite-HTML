@@ -5,6 +5,10 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 0.4  2000/11/12 18:52:56  Administrateur
+# - Add feature of replace word in gabarit (for newsletter by example)
+# - Include body background
+#
 # Revision 0.3  2000/10/26 22:55:46  Administrateur
 # Add parsing for form (action and input image)
 #
@@ -22,13 +26,13 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.3 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 0.4 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
-MIME::Lite::HTML : Provide routine to transform a HTML page in a MIME::Lite mail
+MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
-=head1 SYNOPIS
+=head1 SYNOPSIS
 
   use MIME::Lite;
   use MIME::Lite::HTML;
@@ -57,7 +61,7 @@ and give just url to MIME::Lite::HTML.
 
 =head1 VERSION
 
-$Revision: 0.3 $
+$Revision: 0.4 $
 
 =head1 METHODS
 
@@ -65,7 +69,11 @@ $Revision: 0.3 $
 
 Create a new instance of MIME::Lite::HTML. 
 
-%hash have this key : From, To, Subject, [Proxy], [Debug]
+%hash have this key : From, To, Subject, [Proxy], [Debug], [HashTemplate]
+
+$hash{'HashTemplate'} is a hash too. If present, MIME::Lite::HTML will 
+substitute <? $name ?> with $hash{'HashTemplate'}{'name'} when parse url to
+send.
 
 =cut
 
@@ -84,6 +92,7 @@ sub new {
 	print "Set proxy for http : ", $param{'Proxy'},"\n" if ($self->{_DEBUG} && $param{'Proxy'});
 	$self->{_AGENT} = new LWP::UserAgent 'MIME-Lite', 'alian@alianwebserver.com';
 	$self->{_AGENT}->proxy('http',$param{'Proxy'}) if $param{'Proxy'};
+	$self->{_HASH_TEMPLATE}= $param{'HashTemplate'} if $param{'HashTemplate'};
         return $self;
     	}
 
@@ -105,7 +114,7 @@ sub parse
 	print "Get ", $url_page,"\n" if $self->{_DEBUG};
 	my $req = new HTTP::Request('GET' => $url_page);
 	my $res = $self->{_AGENT}->request($req);
-	if (!$res->is_success) {}
+	if (!$res->is_success) {die "$url_page n'est pas accessible";}
 	else {$gabarit = $res->content;}
 	# Get all images and create part for each of them
 	my $analyseur = HTML::LinkExtor->new;
@@ -131,6 +140,22 @@ sub parse
 			print "Replace ", $$url[2]," with ",$urlAbs,"\n" if $self->{_DEBUG};
 			$url_remplace{$urlAbs}=1;
 			}		
+		elsif (($$url[0] eq 'body') && ($$url[1] eq 'background'))
+			{
+			$gabarit=~s/background="?'?$$url[2]("?|'?)/background="cid:$urlAbs"/gim;
+			print "Get ", $urlAbs,"\n" if $self->{_DEBUG};
+			my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $urlAbs));
+			# Create MIME type
+			if (lc($urlAbs)=~/gif$/) {$type = "image/gif";}
+			else {$type = "image/jpg";}		
+			# Create part
+			my $mail = new MIME::Lite 
+				Data => $res2->content,
+				Encoding =>'base64';		
+			$mail->attr("Content-type"=>$type);
+			$mail->attr('Content-ID'=>$urlAbs);
+			push(@mail,$mail);
+			}
 		# Get only new <img src>
 		next if ((lc($$url[0]) ne 'img') 
 		      && (lc($$url[0]) ne 'src') 
@@ -142,6 +167,7 @@ sub parse
 		print "Get ", $urlAbs,"\n" if $self->{_DEBUG};
 		$images_read{$urlAbs}=1;
 		my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $urlAbs));
+		if (!$res2->is_success) {print "Attention:$urlAbs n'est pas accessible";}
 		# Create part
 		my $mail = new MIME::Lite 
 			Data => $res2->content,
@@ -153,6 +179,8 @@ sub parse
 	# Replace in HTML link with image with cid:key
 	sub pattern_image {return '<img '.$_[0].'src="cid:'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
 	$gabarit=~s/<img([^<>]*)src=(["']?)([^"'> ]*)(["']?)/pattern_image($1,$3,$res->base)/ieg;
+	# Substitue value in template if needed
+	if ($self->{_HASH_TEMPLATE}) {$gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE});}
 	# Create part for HTML
 	my $part = new MIME::Lite 
 		'Type' 	=>'TEXT',   
@@ -288,6 +316,37 @@ sub link_form
 	return $gabarit;
 	}
 
+=head2 fill_template($masque,$vars)
+
+ $masque : Chemin du template
+ $vars : hash des noms/valeurs à substituer dans le template
+
+Rend le template avec ses variables substituées.
+Ex: si $$vars{age}=12, et que le fichier $masque contient la chaine:
+
+  J'ai <? $age ?> ans, 
+
+la fonction rendra
+
+  J'ai 12 ans,
+
+=cut
+
+sub fill_template
+	{
+	my ($self,$masque,$vars)=@_;
+	my @buf=split(/\n/,$masque);
+	my $i=0;
+	while (my ($n,$v)=each(%$vars)) 
+		{
+		if ($v) {map {s/<\?\s\$$n\s\?>/$v/gm} @buf;}
+		else {map {s/<\?\s\$$n\s\?>//gm} @buf;}
+		$i++;		
+		}
+	print "<b>Attention</b>: pas de variables à substituer dans $masque<br>\n" if ($i==0);
+	return join('',@buf);
+	}
+	
 =head1 AUTHOR
 
 Alain BARBET alian@alianwebserver.com
