@@ -1,5 +1,16 @@
 package MIME::Lite::HTML;
 
+# module MIME::Lite::HTML : Provide routine to transform a HTML page in 
+# a MIME::Lite mail
+# Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
+
+# $Log: HTML.pm,v $
+# Revision 0.3  2000/10/26 22:55:46  Administrateur
+# Add parsing for form (action and input image)
+#
+# Revision 0.2  2000/10/26 20:08:06  Administrateur
+# Update remplacement of relative url
+
 use LWP::UserAgent; 
 use HTML::LinkExtor;
 use URI::URL;
@@ -11,11 +22,11 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.1 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 0.3 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
-MIME::Lite::HTML: Provide routine to transform a HTML page in a MIME::Lite mail
+MIME::Lite::HTML : Provide routine to transform a HTML page in a MIME::Lite mail
 
 =head1 SYNOPIS
 
@@ -27,7 +38,7 @@ MIME::Lite::HTML: Provide routine to transform a HTML page in a MIME::Lite mail
 	To  	=> 'alian@jupiter',
 	Subject => 'Mail in HTML with images';
 	
-  $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com/informatique/default.htm');
+  $MIMEmail = $mailHTML->parse('http://www.alianwebserver.com');
   $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
 
 =head1 DESCRIPTION
@@ -46,7 +57,7 @@ and give just url to MIME::Lite::HTML.
 
 =head1 VERSION
 
-$Revision: 0.1 $
+$Revision: 0.3 $
 
 =head1 METHODS
 
@@ -96,26 +107,34 @@ sub parse
 	my $res = $self->{_AGENT}->request($req);
 	if (!$res->is_success) {}
 	else {$gabarit = $res->content;}
-	# Include external CSS files
-	$gabarit = $self->include_css($gabarit,$res->base);
-	# Include external Javascript files
-	$gabarit = $self->include_javascript($gabarit,$res->base);
 	# Get all images and create part for each of them
 	my $analyseur = HTML::LinkExtor->new;
 	$analyseur->parse($gabarit);
 	my @l = $analyseur->links;	
-	my %images_read;
+	# Include external CSS files
+	$gabarit = $self->include_css($gabarit,$res->base);
+	# Include external Javascript files
+	$gabarit = $self->include_javascript($gabarit,$res->base);
+	($gabarit,@mail) = $self->input_image($gabarit,$res->base);
+	$gabarit = $self->link_form($gabarit,$res->base);
+	my (%images_read,%url_remplace);
 	foreach my $url (@l) 
-		{
+		{#print @$url,"\n";
 		my $urlAbs = URI::WithBase->new($$url[2],$res->base)->abs;
-		# Replace href found to absolute one
-		if ( ($$url[0] eq 'a') && ($$url[1] eq 'href') )
+		# Replace relative href found to absolute one
+		if ( ($$url[0] eq 'a') 
+		  && ($$url[1] eq 'href') 
+		  && ($$url[2]!~m!^http://!)
+		  && (!$url_remplace{$urlAbs}) )
 			{
-			$gabarit=~s/$$url[2]/$urlAbs/gm;
+			$gabarit=~s/href="?'?$$url[2]("?|'?)/href="$urlAbs"/gim;
 			print "Replace ", $$url[2]," with ",$urlAbs,"\n" if $self->{_DEBUG};
+			$url_remplace{$urlAbs}=1;
 			}		
 		# Get only new <img src>
-		next if (($$url[0] ne 'img') && ($$url[0] ne 'src') || ($images_read{$urlAbs}) );
+		next if ((lc($$url[0]) ne 'img') 
+		      && (lc($$url[0]) ne 'src') 
+		      || ($images_read{$urlAbs}) );
 		# Create MIME type
 		if (lc($urlAbs)=~/gif$/) {$type = "image/gif";}
 		else {$type = "image/jpg";}		
@@ -133,7 +152,7 @@ sub parse
 		}
 	# Replace in HTML link with image with cid:key
 	sub pattern_image {return '<img '.$_[0].'src="cid:'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
-	$gabarit=~s/<img([^"<>]*)src="([^">]*)"/pattern_image($1,$2,$res->base)/ieg;
+	$gabarit=~s/<img([^<>]*)src=(["']?)([^"'> ]*)(["']?)/pattern_image($1,$3,$res->base)/ieg;
 	# Create part for HTML
 	my $part = new MIME::Lite 
 		'Type' 	=>'TEXT',   
@@ -159,18 +178,19 @@ be found.
 sub include_css
 	{	
 	my ($self,$gabarit,$root)=@_;
-	my $css = qr/(.*?)<link.*?href=["']?(.*?\.css)["']?[^>]*>(.*)/msi;
-	while ($gabarit=~$css) 
+	sub pattern_css
 		{
-		my ($debut,$sty,$fin) = ($1,$2,$3);		
-		my $ur = URI::URL->new($sty,$root);
-		print "Include CSS file ",$ur->abs,"\n" if $self->{_DEBUG};
-		my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur->abs));
-		$gabarit=$debut."\n"."<!-- ".$ur->abs." -->\n".
-			'<style type="text/css">'."\n".
+		my ($self,$url,$milieu,$fin,$root)=@_;
+		my $ur = URI::URL->new($url, $root)->abs;
+		print "Include CSS file $ur\n" if $self->{_DEBUG};
+		my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+		print "Ok file downloaded\n" if $self->{_DEBUG};
+		return 	'<style type="text/css">'."\n".
 			'<!--'."\n".$res2->content.
-			"\n-->\n</style>\n".$fin;		
+			"\n-->\n</style>\n";
 		}
+	$gabarit=~s/<link([^<>]*?)href="?([^" ]*css)"?([^>]*)>/$self->pattern_css($2,$1,$3,$root)/iegm;	
+	print "Done CSS\n" if $self->{_DEBUG};
 	return $gabarit;
 	}
 
@@ -187,19 +207,84 @@ be found.
 sub include_javascript
 	{
 	my ($self,$gabarit,$root)=@_;
-	my $js = qr/(.*?)<script.*?src=["']?(.*?\.js)["']?[^>]*>.*?<\/script>(.*)/msi;
-	while ($gabarit=~$js) 
+	sub pattern_js
 		{
-		my ($debut,$sty,$fin) = ($1,$2,$3);				
-		my $ur = URI::URL->new($sty, $root);
-		print "Include Javascript file ",$ur->abs,"\n" if $self->{_DEBUG};
-		my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur->abs));
-		$sty=URI::URL->new($sty, $res2->base)->abs;
-		$gabarit=$debut."\n"."<!-- $sty -->\n".
-			'<script language="Javascript" type="text/javascript">'."\n".
-			'<!--'."\n".$res2->content.
-			"\n-->\n</script>\n".$fin;		
+		my ($self,$url,$milieu,$fin,$root)=@_;
+		my $ur = URI::URL->new($url, $root)->abs;
+		print "Include Javascript file $ur\n" if $self->{_DEBUG};
+		my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+		my $content = $res2->content;
+		print "Ok file downloaded\n" if $self->{_DEBUG};
+		return "\n"."<!-- $ur -->\n".
+			'<script '.$milieu.$fin.">\n".
+			'<!--'."\n".$content.
+			"\n-->\n</script>\n";
 		}
+	$gabarit=~s/<script([^>]*)src="?([^" ]*js)"?([^>]*)>/$self->pattern_js($2,$1,$3,$root)/iegm;	
+	print "Done Javascript\n" if $self->{_DEBUG};
+	return $gabarit;
+	}
+
+
+=head2 input_image($gabarit,$root) 
+
+(private)
+
+Search in HTML buffer ($gabarit) to remplace input form image with his cid
+
+Return final buffer and list of MIME::Lite part
+
+=cut
+
+sub input_image
+	{
+	my ($self,$gabarit,$root)=@_;	
+	my @mail;
+	sub pattern_input_image
+		{
+		my ($self,$deb,$url,$fin,$base,$ref_tab_mail)=@_;
+		my $type;
+		my $ur = URI::URL->new($url, $base)->abs;
+		# Create MIME type
+		if (lc($ur)=~/gif$/) {$type="image/gif";}
+		else {$type = "image/jpg";}		
+		my $res = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+		# Create part
+		my $mail = new MIME::Lite 
+			Data => $res->content,
+			Encoding =>'base64';		
+		$mail->attr("Content-type"=>$type);
+		$mail->attr('Content-ID'=>$ur);	
+		push(@$ref_tab_mail,$mail);
+		return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;
+		}
+	$gabarit=~s/<input([^<>]*)src="?([^"'> ]*)"?([^>]*)>/$self->pattern_input_image($1,$2,$3,$root,\@mail)/iegm;
+	print "Done input image\n" if $self->{_DEBUG};
+	return ($gabarit,@mail);
+	}
+
+
+=head2 link_form($gabarit,$root) 
+
+(private)
+
+Replace link to formulaire with absolute link
+
+=cut
+
+sub link_form
+	{
+	my ($self,$gabarit,$root)=@_;	
+	my @mail;
+	sub pattern_link_form
+		{
+		my ($self,$deb,$url,$fin,$base)=@_;
+		my $type;
+		my $ur = URI::URL->new($url, $base)->abs;
+		return '<form '.$deb.' action="'.$ur.'"'.$fin.'>';
+		}
+	$gabarit=~s/<form([^<>]*)action="?([^"'> ]*)"?([^>]*)>/$self->pattern_link_form($1,$2,$3,$root)/iegm;
+	print "Done form\n" if $self->{_DEBUG};
 	return $gabarit;
 	}
 
