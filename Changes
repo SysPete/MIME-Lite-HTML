@@ -1,5 +1,18 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.14  2002/08/25 17:11:34  alian
+  - Correct a dammed typo error
+
+1.13  2002/08/25 17:05:57  alian
+  - Change some regexp for be less restrictive with html tags: img a href,
+  ccs and javascript regexp has been updated. Thanks to Alberto Saez Torres
+  for patch.
+  - Add \Q\E in needed regexp for catch url with + or other. Thanks to
+  François-Georges Cloutier for report.
+  - Add a return in fill_template to avoid in warning if no template is in
+  use. Thanks to Miguel Manso for report.
+  - Add t/* tests
+
 1.12  2002/01/07 20:18:53  alian
   - Add replace links for frame & iframe
   - Correct incorrect parsing in include_css for <LINK REL="SHORTCUT ICON">

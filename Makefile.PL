@@ -8,7 +8,8 @@ WriteMakefile(
 	    			MIME::Lite      => 1.0,
 				LWP::UserAgent  => 0,
 				HTML::LinkExtor => 0,
-				URI::URL	=> 0
+				URI::URL	=> 0,
+				Test::More	=> 0
 			}, # e.g., Module::Name => 1.1
      ($] ge '5.005') ? 
 		  (

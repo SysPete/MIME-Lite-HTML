@@ -5,6 +5,18 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.14  2002/08/25 17:11:34  alian
+# Correct a dammed typo error
+#
+# Revision 1.13  2002/08/25 17:05:57  alian
+# - Change some regexp for be less restrictive with html tags: img a href,
+# ccs and javascript regexp has been updated. Thanks to Alberto Saez Torres
+# for patch.
+# - Add \Q\E in needed regexp for catch url with + or other. Thanks to
+# François-Georges Cloutier for report.
+# - Add a return in fill_template to avoid in warning if no template is in
+# use. Thanks to Miguel Manso for report.
+#
 # Revision 1.12  2002/01/07 20:18:53  alian
 # - Add replace links for frame & iframe
 # - Correct incorrect parsing in include_css for <LINK REL="SHORTCUT ICON">
@@ -71,7 +83,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.12 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.14 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -274,7 +286,7 @@ sub parse
 		  ($$url[2]!~m!^\#!))     && # ni les ancres
 		 (!$url_remplace{$urlAbs}) ) # ni les urls deja remplacees
 	    {
-		$gabarit=~s/\s href= [\"']? $$url[2] [\"']?
+		$gabarit=~s/\s href= [\"']? \Q$$url[2]\E [\"']?
 		           / href="$urlAbs"/gimx;
 		print "Replace ",$$url[2]," with ",$urlAbs,"\n" 
 		  if ($self->{_DEBUG});
@@ -285,7 +297,7 @@ sub parse
 	  elsif ( (lc($$url[0] eq 'iframe') || lc($$url[0] eq 'frame')) &&
 		   (lc($$url[1]) eq 'src') && ($$url[2]) )
 	    {
-		$gabarit=~s/\s src= [\"']? $$url[2] [\"']?
+		$gabarit=~s/\s src= [\"']? \Q$$url[2]\E [\"']?
 		           / src="$urlAbs"/gimx;
 		print "Replace ",$$url[2]," with ",$urlAbs,"\n"
 		  if ($self->{_DEBUG});
@@ -298,7 +310,7 @@ sub parse
 	     # Replace relative url with absolute
 	     my $v = ($self->{_include} eq 'cid') ? 
 		 "background=\"cid:$urlAbs\"" : "background=\"$urlAbs\"";
-	     $gabarit=~s/background=\"$$url[2]\"/$v/im;
+	     $gabarit=~s/background=\"\Q$$url[2]\E\"/$v/im;
 	     # Exit with extern configuration, don't include image
 	     # else add part to mail
 	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
@@ -316,7 +328,7 @@ sub parse
 	     # Replace relative url with absolute
 	     my $v = ($self->{_include} eq 'cid') ?
 		 "src=\"cid:$urlAbs\"" : "src=\"$urlAbs\"";
-	     $gabarit=~s/src=\"$$url[4]\"/$v/im;
+	     $gabarit=~s/src=\"\Q$$url[4]\E\"/$v/im;
 	     # Exit with extern configuration, don't include image
 	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
 		 {
@@ -336,7 +348,7 @@ sub parse
 		# Replace relative url with absolute
 		my $v = ($self->{_include} eq 'cid') ?
 		  "value=\"cid:$urlAbs\"" : "value=\"$urlAbs\"";
-		$gabarit=~s/value=\"$$url[4]\"/$v/im;
+		$gabarit=~s/value=\"\Q$$url[4]\E\"/$v/im;
 		# Exit with extern configuration, don't include image
 		if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
 		  {
@@ -349,30 +361,27 @@ sub parse
 	  # Exit with extern configuration, don't include image
 	  elsif ( ($self->{_include} ne 'extern') &&
 		    ((lc($$url[0]) eq 'img') || (lc($$url[0]) eq 'src')) &&
-		    (!$images_read{$urlAbs})
-		  )
-	    {
-		$images_read{$urlAbs}=1;
-		push(@mail, $self->create_image_part($urlAbs));
-	    }
+		    (!$images_read{$urlAbs})) {
+	    $images_read{$urlAbs}=1;
+	    push(@mail, $self->create_image_part($urlAbs));
+	  }
 	}
 
     # Replace in HTML link with image with cid:key
-    sub pattern_image_cid 
-	{
-	  return '<img '.$_[0].'src="cid:'.
-	    URI::WithBase->new($_[1],$_[2])->abs.'"';
-	}
+    sub pattern_image_cid {
+      return '<img '.$_[0].'src="cid:'.
+	URI::WithBase->new($_[1],$_[2])->abs.'"';
+    }
     # Replace relative url for image with absolute
-    sub pattern_image 
-	{return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
+    sub pattern_image {
+      return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
 
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
-       {$gabarit=~s/<img ([^<>]*) src= (["']?) ([^"'> ]* )(["']?)
+       {$gabarit=~s/<img ([^<>]*) src\s*=\s*(["']?) ([^"'> ]* )(["']?)
 	           /pattern_image_cid($1,$3,$racinePage)/iegx;}
      # Else just make a absolute url
-     else {$gabarit=~s/<img ([^<>]*) src= (["']?)([^"'> ]*) (["']?)
+     else {$gabarit=~s/<img ([^<>]*) src\s*=\s*(["']?)([^"'> ]*) (["']?)
 	              /pattern_image($1,$3,$racinePage)/iegx;}
 
    BUILD_MESSAGE:
@@ -522,7 +531,7 @@ sub include_css
 	  '<!--'."\n".$res2->content.
 	    "\n-->\n</style>\n";
       }
-    $gabarit=~s/<link([^<>]*?)href="?([^\" ]*)"?([^>]*)>
+    $gabarit=~s/<link([^<>]*?)href\s*=\s*"?([^\" ]*)"?([^>]*)>
       /$self->pattern_css($2,$1,$3,$root)/iegmx;
     print "Done CSS\n" if ($self->{_DEBUG});
     return $gabarit;
@@ -548,7 +557,7 @@ sub include_javascript
 	    '<!--'."\n".$content.
 	      "\n-->\n</script>\n";
       }
-    $gabarit=~s/<script([^>]*)src="?([^\" ]*js)"?([^>]*)>
+    $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>
       /$self->pattern_js($2,$1,$3,$root)/iegmx;
     print "Done Javascript\n" if $self->{_DEBUG};
     return $gabarit;
@@ -572,7 +581,7 @@ sub input_image
 	  {return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;}
 	else {return '<input '.$deb.' src="'.$ur.'"'.$fin;}
       }
-    $gabarit=~s/<input([^<>]*)src="?([^\"'> ]*)"?([^>]*)>
+    $gabarit=~s/<input([^<>]*)src\s*=\s*"?([^\"'> ]*)"?([^>]*)>
                /$self->pattern_input_image($1,$2,$3,$root,\@mail)/iegmx;
     print "Done input image\n" if $self->{_DEBUG};
     return ($gabarit,@mail);
@@ -586,8 +595,9 @@ sub create_image_part
     my ($self,$ur)=@_;
     my ($type, $buff1);
     # Create MIME type
-    if (lc($ur)=~/gif$/) {$type="image/gif";}
-    elsif (lc($ur)=~/jpg$/) {$type = "image/jpg";}
+    if (lc($ur)=~/\.gif$/i) {$type="image/gif";}
+    elsif (lc($ur)=~/\.jpg$/i) {$type = "image/jpg";}
+    elsif (lc($ur)=~/\.jpg$/i) {$type = "image/png";}
     else { $type = "application/x-shockwave-flash"; }
 
     # Url is already in memory
@@ -651,6 +661,7 @@ sub link_form
 sub fill_template
   {
     my ($self,$masque,$vars)=@_;
+    return unless $masque;
     my @buf=split(/\n/,$masque);
     my $i=0;
     while (my ($n,$v)=each(%$vars))
@@ -716,7 +727,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.12 $
+$Revision: 1.14 $
 
 =head1 DESCRIPTION
 
