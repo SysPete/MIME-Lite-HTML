@@ -5,7 +5,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.17
+X-Mailer: MIME::Lite::HTML 1.18
 
 This is a multi-part message in MIME format.
 

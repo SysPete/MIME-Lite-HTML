@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.18  2003/08/08 09:37:42  alian
+# Fix test case and cid method
+#
 # Revision 1.17  2003/08/07 16:55:08  alian
 # - Fix test case (hostname)
 # - Update POD documentation
@@ -63,7 +66,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.17 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.18 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -636,7 +639,8 @@ sub cid  (\%$) {
   # difference at begin of url to avoid max size of cid
   # I remove scheme always same in a document.
   $url = substr($url, 7);
-  return reverse(split("",unpack("h".length($url),$url))).'@'.$ENV{HOSTNAME};
+  return reverse(split("",unpack("h".length($url),$url))).'@MIME-Lite-HTML-'.
+    $VERSION;
 }
 
 
@@ -733,7 +737,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.17 $
+$Revision: 1.18 $
 
 =head1 DESCRIPTION
 
