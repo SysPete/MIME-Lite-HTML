@@ -1,14 +1,25 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
-1.8  2001/10/29 19:44:11 alian
+1.10  2001/11/07 10:52:43  alian
+ - Add feature for get restricted url. Add LoginDetails parameter for that
+   (tks to Leon.Halford@ing-barings.com for idea)
+ - Change error in POD doc rfc2257 => rfc2557 (tks to
+   justin.zaglio@morganstanley.com)
+ - Correct warning when $url_html is undef
 
-- From Emiliano Bruni <bruni@micso.it>:
+1.9  2001/11/07 08:41:39  alian
+ - From tosh@c4.ca:  Add feature for parsing/include flash movie
+ - From Alian: Rebuild parse and create_image_part method for always use
+   create_image_part when I add a MIME part. Add comment and POD doc.
+
+1.8  2001/10/29 19:44:11 alian
+ - From Emiliano Bruni <bruni@micso.it>:
   - Modify css link search for match file with no .css extension
   - Now $html in parse may be empty. It will be sent a simple message
     containing just text
   - Correct bug in relative url replace that lost space between "a" and
      "href"
-- From Alian:
+ - From Alian:
   - Correct bug with empty link a href
   - Add pod doc for win install (ppm)
   - Update example to do a "Send this page to a friend"

@@ -5,6 +5,18 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.10  2001/11/07 10:52:43  alian
+# - Add feature for get restricted url. Add LoginDetails parameter for that
+# (tks to Leon.Halford@ing-barings.com for idea)
+# - Change error in POD doc rfc2257 => rfc2557 (tks to
+# justin.zaglio@morganstanley.com)
+# - Correct warning when $url_html is undef
+#
+# Revision 1.9  2001/11/07 08:41:39  alian
+# - From tosh@c4.ca:  Add feature for parsing/include flash movie
+# - From Alian: Rebuild parse and create_image_part method for always use
+# create_image_part when I add a MIME part. Add comment and POD doc.
+#
 # Revision 1.8  2001/10/29 18:44:11  alian
 # - From Emiliano Bruni <bruni@micso.it>:
 #  - Modify css link search for match file with no .css extension
@@ -21,7 +33,7 @@ package MIME::Lite::HTML;
 # - Correct bug with empty background image
 #
 # Revision 1.6  2001/10/21 22:25:27  alian
-# - Ajout des dependances necessaires dans Makefile.PL
+# - Add needed dependancies in Makefile.PL
 #
 # Revision 1.5  2001/07/27 12:40:44  alian
 # - Add support of custom encodings and charsets for the text and the html 
@@ -39,35 +51,6 @@ package MIME::Lite::HTML;
 # messages(tks to StevenBenbow@quintessa.org)
 # - Correct a strange error that occur with URI::http if i don't chomp url
 # before call it (tks to Maarten Veerman <mtveerman@mindless.com>)
-#
-# Revision 1.2  2001/03/20 22:35:56  alian
-# - Add lot of pod documentation
-# - Change how final mail is build:
-#  If no images are found when parse routine is used, this modules did'nt
-#  use a multipart/related part, but a text/html part. Thus, we can reach
-#  a max. of mail clients (See "clients tested" in documentation).
-# - Add size function
-#
-# Revision 1.1  2001/03/04 22:29:07  alian
-# - Correct an error with background image quote
-#
-# Revision 1.0  2001/03/04 22:13:19  alian
-# - Correct major problem with Eudora (See Clients tested in documentation)
-# - Build final MIME-Lite object with knowledge of RFC-2257
-# - Add some POD documentation and references
-#
-# Revision 0.9  2001/02/02 01:15:35  alian
-# Correct some other things with error handling 
-# (suggested by Steve Harvey <sgh@vex.net>
-#
-# Revision 0.8  2001/01/21 00:58:48  alian
-# Correct error function
-#
-# Revision 0.7  2000/12/30 20:22:27  alian
-# - Allow to send a string of text to the parse function, instead of an url
-# - Add feature to put data on the fly when image are available only on memory
-# - Put comments on print when buffer find url
-# Ideas suggested by mtveerman@mindless.com
 
 use LWP::UserAgent;
 use HTML::LinkExtor;
@@ -80,7 +63,50 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.8 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.10 $ ' =~ /(\d+\.\d+)/)[0];
+
+my $LOGINDETAILS;
+
+#------------------------------------------------------------------------------
+# redefine get_basic_credentials
+#------------------------------------------------------------------------------
+{
+    package RequestAgent;
+    use vars qw(@ISA);
+    @ISA = qw(LWP::UserAgent);
+
+    sub new
+    { 
+	my $self = LWP::UserAgent::new(@_);
+	$self;
+    }
+
+    sub get_basic_credentials
+	{	
+	  my($self, $realm, $uri) = @_;
+	  # Use parameter of MIME-Lite-HTML, key LoginDetails
+	  if (defined $LOGINDETAILS) { return split(':', $LOGINDETAILS, 2); } 
+	  # Ask user on STDIN
+	  elsif (-t) 
+	    {
+		my $netloc = $uri->host_port;
+		print "Enter username for $realm at $netloc: ";
+		my $user = <STDIN>;
+		chomp($user);
+		# 403 if no user given
+		return (undef, undef) unless length $user;
+		print "Password: ";
+		system("stty -echo");
+		my $password = <STDIN>;
+		system("stty echo");
+		print "\n";  # because we disabled echo
+		chomp($password);
+		return ($user, $password);
+	    }
+	  # Damm we got 403 with CGI (use param LoginDetails)  ...
+	  else { return (undef, undef) }
+	}
+  }
 
 #------------------------------------------------------------------------------
 # new
@@ -92,7 +118,7 @@ sub new
     bless $self, $class;
     my %param = @_;
     # Agent name
-    $self->{_AGENT} = new LWP::UserAgent;
+    $self->{_AGENT} = new RequestAgent;
     $self->{_AGENT}->agent("MIME-Lite-HTML $VERSION");
     $self->{_AGENT}->from('mime-lite-html@alianwebserver.com' );
     # Set debug level
@@ -100,6 +126,12 @@ sub new
       {
 	$self->{_DEBUG} = 1;
 	delete $param{'Debug'};
+      }
+    # Set Login information
+    if ($param{'LoginDetails'})
+      {
+	  $LOGINDETAILS = $param{'LoginDetails'};
+	  delete $param{'LoginDetails'};
       }
     # Set type of include to do
     if ($param{'IncludeType'})
@@ -117,32 +149,26 @@ sub new
 ## Added by Michalis@linuxmail.org to manipulate non-us mails
    if ($param{'TextCharset'}) {
      $self->{_textcharset}=$param{'TextCharset'};
-  	  delete $param{'TextCharset'};
-    }
-   else {
-     $self->{_textcharset}='iso-8859-1';
-    }
+     delete $param{'TextCharset'};
+   }
+   else { $self->{_textcharset}='iso-8859-1'; }
    if ($param{'HTMLCharset'}) {
      $self->{_htmlcharset}=$param{'HTMLCharset'};
-	  delete $param{'HTMLCharset'};
+     delete $param{'HTMLCharset'};
     }
-   else {
-     $self->{_htmlcharset}='iso-8859-1';
-	 }
+   else { $self->{_htmlcharset}='iso-8859-1'; }
+
    if ($param{'TextEncoding'}) {
      $self->{_textencoding}=$param{'TextEncoding'};
-	  delete $param{'TextEncoding'};
+     delete $param{'TextEncoding'};
     }
-   else {
-     $self->{_textencoding}='7bit';
-    }
+   else { $self->{_textencoding}='7bit'; }
+
    if ($param{'HTMLEncoding'}) {
      $self->{_htmlencoding}=$param{'HTMLEncoding'};
-	  delete $param{'HTMLEncoding'};
+     delete $param{'HTMLEncoding'};
     }
-   else {
-     $self->{_htmlencoding}='quoted-printable';
-    }
+   else { $self->{_htmlencoding}='quoted-printable'; }
 ## End. Default values remain as they were initially set.
 ## No need to change existing scripts if you send US-ASCII. 
 ## If you DON't send us-ascii, you wouldn't be able to use 
@@ -174,146 +200,151 @@ sub new
 # parse
 #------------------------------------------------------------------------------
 sub parse
-     {
-     my($self,$url_page,$url_txt,$url1)=@_;
-     my ($type,@mail,$gabarit,$gabarit_txt,$racinePage);
+  {
+    my($self,$url_page,$url_txt,$url1)=@_;
+    my ($type,@mail,$gabarit,$gabarit_txt,$racinePage);
 
-     if ($url_page=~/^(https?|ftp|file|nntp):\/\//)
-        {
-        # Get content of $url_page with LWP
+    # Get content of $url_page with LWP
+    if ($url_page && $url_page=~/^(https?|ftp|file|nntp):\/\//)
+	{
         print "Get ", $url_page,"\n" if $self->{_DEBUG};	
         my $req = new HTTP::Request('GET' => $url_page);
         my $res = $self->{_AGENT}->request($req);
         if (!$res->is_success) 
-	  {$self->set_err("Can't fetch $url_page (".$res->message.")");}
+	    {$self->set_err("Can't fetch $url_page (".$res->message.")");}
         else {$gabarit = $res->content;}
         $racinePage=$res->base;
-        }
-     else {$gabarit=$url_page;$racinePage=$url1;}
+	}
+    else {$gabarit=$url_page;$racinePage=$url1;}
 
-     # Get content of $url_txt with LWP if needed
-     if ($url_txt)
-          {
-          if ($url_txt=~/^(https?|ftp|file|nntp):\/\//)
-            {
+    # Get content of $url_txt with LWP if needed
+    if ($url_txt)
+	{
+	  if ($url_txt=~/^(https?|ftp|file|nntp):\/\//)
+	    {
             print "Get ", $url_txt,"\n" if $self->{_DEBUG};
             my $req2 = new HTTP::Request('GET' => $url_txt);
             my $res3 = $self->{_AGENT}->request($req2);
             if (!$res3->is_success) 
-	      {$self->set_err("Can't fetch $url_txt (".$res3->message.")");}
+		  {$self->set_err("Can't fetch $url_txt (".$res3->message.")");}
             else {$gabarit_txt = $res3->content;}
-            }
-          else {$gabarit_txt=$url_txt;}
+	    }
+	  else {$gabarit_txt=$url_txt;}
           }
-     goto BUILD_MESSAGE unless $gabarit;
-     # Get all images and create part for each of them
-     my $analyseur = HTML::LinkExtor->new;
-     $analyseur->parse($gabarit);
-     my @l = $analyseur->links;
+    goto BUILD_MESSAGE unless $gabarit;
 
-     # Include external CSS files
-     $gabarit = $self->include_css($gabarit,$racinePage);
+    # Get all multimedia part (img, flash) for later create a MIME part 
+    # for each of them
+    my $analyseur = HTML::LinkExtor->new;
+    $analyseur->parse($gabarit);
+    my @l = $analyseur->links;
 
-     # Include external Javascript files
-     $gabarit = $self->include_javascript($gabarit,$racinePage);
-     ($gabarit,@mail) = $self->input_image($gabarit,$racinePage);
-     $gabarit = $self->link_form($gabarit,$racinePage);
-     my (%images_read,%url_remplace);
-     # Scan each part found by linkExtor
-     foreach my $url (@l)
-       {#print @$url,"\n";
-	 my $urlAbs = URI::WithBase->new($$url[2],$racinePage)->abs;
-	 chomp $urlAbs; # Sometime a strange cr/lf occur
-	 # Replace relative href found to absolute one
-	 if ( ($$url[0] eq 'a')
-	      && ($$url[1] eq 'href') && ($$url[2])
-	      && ( ($$url[2]!~m!^http://!) && ($$url[2]!~m!^mailto:!))
-	      && (!$url_remplace{$urlAbs}) )
-	   {
-       	     $gabarit=~s/\s href= [\"']? $$url[2] [\"']?
-                        / href="$urlAbs"/gimx;
-	     print "Replace ",$$url[2]," with ",$urlAbs,"\n" 
-	       if ($self->{_DEBUG});
-	     $url_remplace{$urlAbs}=1;
-           }
-         # For images background
-         elsif (($$url[1] eq 'background') && ($$url[2]))
+    # Include external CSS files
+    $gabarit = $self->include_css($gabarit,$racinePage);
+
+    # Include external Javascript files
+    $gabarit = $self->include_javascript($gabarit,$racinePage);
+
+    # Include form images
+    ($gabarit,@mail) = $self->input_image($gabarit,$racinePage);
+
+    # Change target action for form
+    $gabarit = $self->link_form($gabarit,$racinePage);
+
+    # Scan each part found by linkExtor
+    my (%images_read,%url_remplace);
+    foreach my $url (@l)
+	{
+	  my $urlAbs = URI::WithBase->new($$url[2],$racinePage)->abs;
+	  chomp $urlAbs; # Sometime a strange cr/lf occur
+
+	  # Replace relative href found to absolute one
+	  if ( ($$url[0] eq 'a') &&
+		 ($$url[1] eq 'href') && ($$url[2]) &&
+		 (($$url[2]!~m!^http://!) && ($$url[2]!~m!^mailto:!)) &&
+		 (!$url_remplace{$urlAbs}) )
+	    {
+		$gabarit=~s/\s href= [\"']? $$url[2] [\"']?
+		           / href="$urlAbs"/gimx;
+		print "Replace ",$$url[2]," with ",$urlAbs,"\n" 
+		  if ($self->{_DEBUG});
+		$url_remplace{$urlAbs}=1;
+	    }
+
+	  # For background images
+	  elsif (($$url[1] eq 'background') && ($$url[2]))
 	   {
 	     # Replace relative url with absolute
-	     my $v;
-	     if ($self->{_include} eq 'cid') 
-	       {$v ="background=\"cid:$urlAbs\"";}
-	     else {$v ="background=\"$urlAbs\"";}
+	     my $v = ($self->{_include} eq 'cid') ? 
+		 "background=\"cid:$urlAbs\"" : "background=\"$urlAbs\"";
 	     $gabarit=~s/background=\"$$url[2]\"/$v/im;
 	     # Exit with extern configuration, don't include image
-	     next if ($self->{_include} eq 'extern');
-	     print "Get background ", $urlAbs,"\n" if $self->{_DEBUG};
-	     my $res2 = $self->{_AGENT}->request
-	       (new HTTP::Request('GET' => $urlAbs));
-	     # Create MIME  type
-	     if (lc($urlAbs)=~/gif$/) {$type = "image/gif";}
-	     else {$type = "image/jpg";}
-	     # Create part
-	     my $mail = new MIME::Lite
-	       Data => $res2->content,
-	       Encoding =>'base64';
-	     $mail->attr("Content-type"=>$type);
-	     if ($self->{_cid}) {$mail->attr('Content-ID'=>$urlAbs);}
-	     else {$mail->attr('Content-Location'=>$urlAbs);}
-	     push(@mail,$mail);
+	     # else add part to mail
+	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+		 {
+		   $images_read{$urlAbs} = 1;
+		   push(@mail, $self->create_image_part($urlAbs)); 
+		 }
 	   }
-	 # Get only new <img src>
-	 # Exit with extern configuration, don't include image
-	 next if ( ($self->{_include} eq 'extern') 
-		   || ((lc($$url[0]) ne 'img') 
-		       && (lc($$url[0]) ne 'src') 
-		       || ($images_read{$urlAbs}) ));
-	 # Create MIME type
-	 if (lc($urlAbs)=~/gif$/) {$type = "image/gif";}
-	 else {$type = "image/jpg";}
-	 my $buff1;
-	 # Url is already in memory
-	 if ($self->{_HASH_TEMPLATE}{$urlAbs})
+
+	  # For flash part (embed)
+	  elsif ($$url[0] eq 'embed' && $$url[4]) 
 	   {
-	     print "Using buffer on: ", $urlAbs,"\n" if $self->{_DEBUG};
-	     $buff1 = ref($self->{_HASH_TEMPLATE}{$urlAbs}) eq "ARRAY" 
-	       ? join "", @{$self->{_HASH_TEMPLATE}{$urlAbs}} 
-	     : $self->{_HASH_TEMPLATE}{$urlAbs};
-	     delete $self->{_HASH_TEMPLATE}{$urlAbs};
+	     # rebuild $urlAbs
+	     $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
+	     # Replace relative url with absolute
+	     my $v = ($self->{_include} eq 'cid') ?
+		 "src=\"cid:$urlAbs\"" : "src=\"$urlAbs\"";
+	     $gabarit=~s/src=\"$$url[4]\"/$v/im;
+	     # Exit with extern configuration, don't include image
+	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+		 {
+		   $images_read{$urlAbs}=1;
+		   push(@mail, $self->create_image_part($urlAbs));
+		 }
 	   }
-	 else # Get image
-	   {
-	     print "Get img ", $urlAbs,"\n" if $self->{_DEBUG};
-	     my $res2 = $self->{_AGENT}->
-	       request(new HTTP::Request('GET' => $urlAbs));
-	     if (!$res2->is_success) {$self->set_err("Can't get $urlAbs\n");}
-	     $buff1=$res2->content;
-	   }
-	 # Create part
-	 $images_read{$urlAbs}=1;
-	 my $mail = new MIME::Lite
-	   Data => $buff1,
-	   Encoding =>'base64'; 
-	 $mail->replace("X-Mailer" => "");
-	 $mail->replace("MIME-Version" => "");
-	 $mail->replace("Content-Disposition" => "");
-	 $mail->attr("Content-type"=>$type);
-	 # With cid configuration, add a Content-ID field
-	 if ($self->{_include} eq 'cid') 
-	   {$mail->attr('Content-ID' =>'<'.$urlAbs.'>');}
-	 # Else (location) put a Content-Location field
-	 else {$mail->attr('Content-Location'=>$urlAbs);}
-	 push(@mail,$mail);
-       }
-     # Replace in HTML link with image with cid:key
-     sub pattern_image_cid 
-       {
-	 return '<img '.$_[0].'src="cid:'.
-	   URI::WithBase->new($_[1],$_[2])->abs.'"';
-       }
-     # Replace relative url for image with absolute
-     sub pattern_image 
-       {return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
+
+	  # For flash part (object)
+	  # Need to add "param" to Tagset.pm in the linkElements definition:
+	  # 'param' => ['name', 'value'],
+	  # Tks to tosh@c4.ca for that
+	  elsif ($$url[0] eq 'param' && $$url[2] eq 'movie' && $$url[4])
+	    {
+		# rebuild $urlAbs
+		$urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
+		# Replace relative url with absolute
+		my $v = ($self->{_include} eq 'cid') ?
+		  "value=\"cid:$urlAbs\"" : "value=\"$urlAbs\"";
+		$gabarit=~s/value=\"$$url[4]\"/$v/im;
+		# Exit with extern configuration, don't include image
+		if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+		  {
+		    $images_read{$urlAbs}=1;
+		    push(@mail, $self->create_image_part($urlAbs));
+		  }
+	    }
+
+	  # For new images create part
+	  # Exit with extern configuration, don't include image
+	  elsif ( ($self->{_include} ne 'extern') &&
+		    ((lc($$url[0]) eq 'img') || (lc($$url[0]) eq 'src')) &&
+		    (!$images_read{$urlAbs})
+		  )
+	    {
+		$images_read{$urlAbs}=1;
+		push(@mail, $self->create_image_part($urlAbs));
+	    }
+	}
+
+    # Replace in HTML link with image with cid:key
+    sub pattern_image_cid 
+	{
+	  return '<img '.$_[0].'src="cid:'.
+	    URI::WithBase->new($_[1],$_[2])->abs.'"';
+	}
+    # Replace relative url for image with absolute
+    sub pattern_image 
+	{return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
 
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
@@ -324,28 +355,28 @@ sub parse
 	              /pattern_image($1,$3,$racinePage)/iegx;}
 
    BUILD_MESSAGE:
-     # Substitue value in template if needed
-     if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
-       {
-	 $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE}) 
-	   if ($gabarit);
-	 $gabarit_txt=$self->fill_template($gabarit_txt,
-					   $self->{_HASH_TEMPLATE});
-       }
+    # Substitue value in template if needed
+    if (scalar keys %{$self->{_HASH_TEMPLATE}}!=0)
+	{
+	  $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE}) 
+	    if ($gabarit);
+	  $gabarit_txt=$self->fill_template($gabarit_txt,
+							$self->{_HASH_TEMPLATE});
+	}
 
-     # Create MIME-Lite object
-     $self->build_mime_object($gabarit,$gabarit_txt,@mail);
+    # Create MIME-Lite object
+    $self->build_mime_object($gabarit,$gabarit_txt,@mail);
 
-     return $self->{_MAIL};
-   }
+    return $self->{_MAIL};
+  }
 
 #------------------------------------------------------------------------------
 # size
 #------------------------------------------------------------------------------
 sub size
   {
-  my ($self)=shift;
-  return length($self->{_MAIL}->as_string);
+    my ($self)=shift;
+    return length($self->{_MAIL}->as_string);
   }
 
 
@@ -528,25 +559,44 @@ sub input_image
 sub create_image_part
   {
     my ($self,$ur)=@_;
-    my $type;
+    my ($type, $buff1);
     # Create MIME type
     if (lc($ur)=~/gif$/) {$type="image/gif";}
-    else {$type = "image/jpg";}
-    my $res = $self->{_AGENT}->request
-      (new HTTP::Request('GET' => $ur));
+    elsif (lc($ur)=~/jpg$/) {$type = "image/jpg";}
+    else { $type = "application/x-shockwave-flash"; }
+
+    # Url is already in memory
+    if ($self->{_HASH_TEMPLATE}{$ur})
+	{
+	  print "Using buffer on: ", $ur,"\n" if $self->{_DEBUG};
+	  $buff1 = ref($self->{_HASH_TEMPLATE}{$ur}) eq "ARRAY" 
+	    ? join "", @{$self->{_HASH_TEMPLATE}{$ur}} 
+		: $self->{_HASH_TEMPLATE}{$ur};
+	  delete $self->{_HASH_TEMPLATE}{$ur};
+	}
+    else # Get image
+	{
+	  print "Get img ", $ur,"\n" if $self->{_DEBUG};
+	  my $res2 = $self->{_AGENT}->
+	    request(new HTTP::Request('GET' => $ur));
+	  if (!$res2->is_success) {$self->set_err("Can't get $ur\n");}
+	  $buff1=$res2->content;
+	}
+
     # Create part
-    my $mail = new MIME::Lite
-	      Data => $res->content,
-      Encoding =>'base64';
+    my $mail = new MIME::Lite( Data => $buff1, Encoding =>'base64');
+
     $mail->attr("Content-type"=>$type);
     # With cid configuration, add a Content-ID field
-    if ($self->{_include} eq 'cid') 
-      {$mail->attr('Content-ID' =>'<'.$ur.'>');}
+    if ($self->{_include} eq 'cid') {$mail->attr('Content-ID' =>'<'.$ur.'>');}
     # Else (location) put a Content-Location field
     else {$mail->attr('Content-Location'=>$ur);}
+
+    # Remove header for Eudora client
     $mail->replace("X-Mailer" => "");
     $mail->replace("MIME-Version" => "");
     $mail->replace("Content-Disposition" => "");
+
     return $mail;
   }
 
@@ -641,7 +691,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.8 $
+$Revision: 1.10 $
 
 =head1 DESCRIPTION
 
@@ -662,7 +712,7 @@ Get the file (LWP) if needed
 
 =item *
 
-Parse page to find include images
+Parse page to find include images (gif, jpg, flash)
 
 =item *
 
@@ -682,6 +732,8 @@ Build the final MIME-Lite object with each part found
 
 =back
 
+
+
 =head2 Usage
 
 Did you alread see link like "Send this page to a friend" ?. With this module,
@@ -692,7 +744,7 @@ and give just url to MIME::Lite::HTML.
 
 =head2 Construction
 
-MIME-Lite-HTML use a MIME-Lite object, and RFC2257 construction:
+MIME-Lite-HTML use a MIME-Lite object, and RFC2557 construction:
 
 If images and text are present, construction use is:
 
@@ -719,6 +771,7 @@ If no images and no text, this is:
   ---> text/html
 
 
+
 =head2 Documentation
 
 Additionnal documentation can be found here:
@@ -731,10 +784,12 @@ MIME-lite module
 
 =item *
 
-RFC 822, RFC 1521, RFC 1522 and specially RFC 2257 (MIME Encapsulation
+RFC 822, RFC 1521, RFC 1522 and specially RFC 2557 (MIME Encapsulation
 of Aggregate Documents, such as HTML)
 
 =back
+
+
 
 =head2 Clients tested
 
@@ -758,7 +813,7 @@ give mr this feedback and for his test.
 If this module just send HTML and text, (without images), 100% ok.
 
 With images, Eudora didn't recognize multipart/related part as describe in
-RFC 2257 even if he can read his own HTML mail. So if images are present in 
+RFC 2557 even if he can read his own HTML mail. So if images are present in 
 HTML part, text and HTML part will be displayed both, text part in first. 
 Two additional headers will be displayed in HTML part too in this case. 
 Version 1.0 of this module correct major problem of headers displayed 
@@ -787,6 +842,8 @@ read by maximum of people, (so not only OE and Netscape), don't include
 images in your mail, and use a text buffer too. If multipart/related mail 
 is not recognize, multipart/alternative can be read by the most of mail client.
 
+
+
 =head2 Install on WinX with ActiveState / PPM
 
 Just do in DOS "shell":
@@ -795,6 +852,14 @@ Just do in DOS "shell":
   > set repository alian http://www.alianwebserver.com/perl/CPAN
   > install MIME-Lite-HTML
   > quit
+
+
+
+=head2 How know when next release will be ?
+
+Subscribe on http://www.alianwebserver.com/cgi-bin/news_mlh.cgi
+
+
 
 =head1 Public Interface
 
@@ -805,7 +870,7 @@ Just do in DOS "shell":
 Create a new instance of MIME::Lite::HTML.
 
 The hash can have this key : [Proxy], [Debug], [IncludeType], [HashTemplate], 
-[Charset], [TextEncoding]
+ [LoginDetails], [TextCharset], [HTMLCharset], [TextEncoding], [HTMLEncoding]
 
 =over
 
@@ -849,7 +914,13 @@ or $hash{'HashTemplate'}{'http://www.al.com/script.js'}="alert("Hello world");;
 
 When module find the image http://www.alianwebserver.com/images/sommaire.gif 
 in buffer, it don't get image with LWP but use data found in 
-$hash{'HashTemplate'}.
+$hash{'HashTemplate'}. (See eg/example2.pl)
+
+=item LoginDetails
+
+... is the couple user:password for use with restricted url. 
+
+  Eg: 'LoginDetails' => 'my_user:my_password'
 
 =item TextCharset 
 
@@ -884,6 +955,8 @@ This MIME-Lite keys are: Bcc, Encrypted, Received, Sender, Cc, From,
 References, Subject, Comments, Keywords, Reply-To To, Content-*,
 Message-ID,Resent-*, X-*,Date, MIME-Version, Return-Path,
 Organization
+
+
 
 =item parse($html, [$url_txt], [$url_base])
 
@@ -949,6 +1022,12 @@ List of images attached to HTML part. Each item is a MIME-Lite object.
 =back
 
 See "Construction" in "Description" for know how MIME-Lite object is build.
+
+=item create_image_part($url)
+
+(private)
+
+Fetch if needed $url, and create a MIME part for it.
 
 =item include_css($gabarit,$root)
 
