@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 0.5  2000/11/13 21:36:58  Administrateur
+# - Arg, forgot cariage return in fill_template :-(
+#
 # Revision 0.4  2000/11/12 18:52:56  Administrateur
 # - Add feature of replace word in gabarit (for newsletter by example)
 # - Include body background
@@ -26,7 +29,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.4 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 0.5 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
@@ -61,7 +64,7 @@ and give just url to MIME::Lite::HTML.
 
 =head1 VERSION
 
-$Revision: 0.4 $
+$Revision: 0.5 $
 
 =head1 METHODS
 
@@ -344,7 +347,7 @@ sub fill_template
 		$i++;		
 		}
 	print "<b>Attention</b>: pas de variables à substituer dans $masque<br>\n" if ($i==0);
-	return join('',@buf);
+	return join("\n",@buf);
 	}
 	
 =head1 AUTHOR
