@@ -5,6 +5,9 @@ package MIME::Lite::HTML;
 # Copyright 2000 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 0.9  2001/02/02 01:15:35  alian
+# Correct some other things with error handling (suggested by Steve Harvey <sgh@vex.net>
+#
 # Revision 0.8  2001/01/21 00:58:48  alian
 # Correct error function
 #
@@ -43,7 +46,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 0.8 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 0.9 $ ' =~ /(\d+\.\d+)/)[0];
 
 =head1 NAME
 
@@ -96,7 +99,7 @@ and give just url to MIME::Lite::HTML.
 
 =head1 VERSION
 
-$Revision: 0.8 $
+$Revision: 0.9 $
 
 =head1 METHODS
 
@@ -204,7 +207,7 @@ sub parse
         print "Get ", $url_page,"\n" if $self->{_DEBUG};
         my $req = new HTTP::Request('GET' => $url_page);
         my $res = $self->{_AGENT}->request($req);
-        if (!$res->is_success) {self->set_err("$url_page n'est pas accessible");}
+        if (!$res->is_success) {$self->set_err("$url_page n'est pas accessible");}
         else {$gabarit = $res->content;}
         $racinePage=$res->base;
         }
@@ -413,7 +416,7 @@ sub input_image
           else {$type = "image/jpg";}          
           my $res = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
           # Create part
-          my $mail = new MIME::Lite 
+          my $mail = new MIME::Lite
                Data => $res->content,
                Encoding =>'base64';
           $mail->attr("Content-type"=>$type);
@@ -483,14 +486,15 @@ sub fill_template
      
 =head1 Error Handling
 
-The set_err routine is used privately. You can ask for an array of all the errors which occured inside the parse routine by
-calling:
+The set_err routine is used privately. You can ask for an array of all the errors
+which occured inside the parse routine by calling:
 
 @errors = $mailHTML->errstr;
 
 If no errors where found, it'll return undef.
 
-=cut 
+=cut
+
 sub set_err {
 my($self,$error) = @_;
 
@@ -504,7 +508,9 @@ return 1;
 sub errstr {
 my($self) = @_;
 return @{$self->{_ERRORS}} if ($self->{_ERRORS});
+return ();
 }
+
 =head1 AUTHOR
 
 Alain BARBET alian@alianwebserver.com
