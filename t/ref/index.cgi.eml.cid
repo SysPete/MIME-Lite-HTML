@@ -5,7 +5,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.18
+X-Mailer: MIME::Lite::HTML 1.19
 
 This is a multi-part message in MIME format.
 
@@ -83,7 +83,7 @@ Content-Type: text/html; charset=iso-8859-1
 				<td align=3D"center" valign=3D"middle">
 <table cellpadding=3D"0" cellspacing=3D"0" boroder=3D"0" width=3D"100%"><tr=
 ><td align=3D"left"><a href=3D"file:///comics?name=3Dnorm"><img  border=3D"=
-0" src=3D"cid:2f736567616d692f@MIME-Lite-HTML-1.18"></a></td></tr></table>	=
+0" src=3D"cid:6e6f726d2e676966@MIME-Lite-HTML-1.19"></a></td></tr></table>	=
 			</td>
 			</tr>
 			<tr>
@@ -98,15 +98,15 @@ Content-Type: text/html; charset=iso-8859-1
 ellpadding=3D"0" bgcolor=3D"#dddddd">
 					<TR><td valign=3D"top" align=3D"middle" colspan=3D"9" height=3D"26px" =
 width=3D"648px" style=3D
-						"color:#ffffff; background-repeat:no-repeat"  background=3D"cid:f7365=
-67616d692f@MIME-Lite-HTML-1.18">
+						"color:#ffffff; background-repeat:no-repeat"  background=3D"cid:f6261=
+722e676966@MIME-Lite-HTML-1.19">
 						<a href=3D"file:///comics?name=3Dnorm&date=3D20020919"><img  border=
-=3D"0" src=3D"cid:6572702f736567616d692f@MIME-Lite-HTML-1.18"></a>
+=3D"0" src=3D"cid:765f6d6f6e74682e676966@MIME-Lite-HTML-1.19"></a>
 							&nbsp;&nbsp;&nbsp;
 							October 2002
 							&nbsp;&nbsp;&nbsp;
 						<a href=3D"file:///comics?name=3Dnorm&date=3D20021119"><img  border=
-=3D"0" src=3D"cid:78656e2f736567616d692f@MIME-Lite-HTML-1.18"></a>
+=3D"0" src=3D"cid:745f6d6f6e74682e676966@MIME-Lite-HTML-1.19"></a>
 					</td></TR>
 					<tr height=3D"0">
 						<td width=3D"29%" bgcolor=3D"#ffffff" rowspan=3D"8" border=3D"0">
@@ -237,7 +237,7 @@ or=3D"#ffffff">&nbsp;<a class=3D"calend_link" href=3D"file:///comics?name=
 							<td align=3D"center" valign=3D"middle" width=3D"100%" height=3D"26px=
 " style=3D
 	        		                                        "background-repeat:no-re=
-peat;color:#ffffff"  background=3D"cid:f736567616d692f@MIME-Lite-HTML-1.18">
+peat;color:#ffffff"  background=3D"cid:f6261722e676966@MIME-Lite-HTML-1.19">
 								<span style=3D"width:100px"></span>
                         		                        <a href=3D"file:///comics=
 ?name=3Dnorm&date=3D20021019&howmany=3D1" class=3D"title_link">The Norm</a>
@@ -253,7 +253,7 @@ nd-color:#ffffff;padding:0px" />
 					</tr>
 					<tr><td align=3D"center">
 						<a href=3D"file:///comics?name=3Dnorm&date=3D20021019"><img  src=3D"c=
-id:632e6b696d6f63776f68732f7363696d6f632f736567616d692f@MIME-Lite-HTML-1.18=
+id:67693f6e616d653d6e6f726d26646174653d3230303231303139@MIME-Lite-HTML-1.19=
 " border=3D"0"></a>
 						<br><br>
 					</td></tr>
@@ -264,35 +264,35 @@ id:632e6b696d6f63776f68732f7363696d6f632f736567616d692f@MIME-Lite-HTML-1.18=
 </html>=0D
 
 --alian-mime-lite-html
-Content-Id: <2f736567616d692f@MIME-Lite-HTML-1.18>
+Content-Id: <6e6f726d2e676966@MIME-Lite-HTML-1.19>
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
 
 
 
 --alian-mime-lite-html
-Content-Id: <f736567616d692f@MIME-Lite-HTML-1.18>
+Content-Id: <f6261722e676966@MIME-Lite-HTML-1.19>
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
 
 
 
 --alian-mime-lite-html
-Content-Id: <6572702f736567616d692f@MIME-Lite-HTML-1.18>
+Content-Id: <765f6d6f6e74682e676966@MIME-Lite-HTML-1.19>
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
 
 
 
 --alian-mime-lite-html
-Content-Id: <78656e2f736567616d692f@MIME-Lite-HTML-1.18>
+Content-Id: <745f6d6f6e74682e676966@MIME-Lite-HTML-1.19>
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
 
 
 
 --alian-mime-lite-html
-Content-Id: <632e6b696d6f63776f68732f7363696d6f632f736567616d692f@MIME-Lite-HTML-1.18>
+Content-Id: <67693f6e616d653d6e6f726d26646174653d3230303231303139@MIME-Lite-HTML-1.19>
 Content-Transfer-Encoding: base64
 Content-Type: application/x-shockwave-flash
 

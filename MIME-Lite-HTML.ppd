@@ -1,4 +1,4 @@
-<SOFTPKG NAME="MIME-Lite-HTML" VERSION="1,15,0,0">
+<SOFTPKG NAME="MIME-Lite-HTML" VERSION="1,19,0,0">
 	<TITLE>MIME-Lite-HTML</TITLE>
 	<ABSTRACT>Provide routine to transform a HTML page in a MIME-Lite mail</ABSTRACT>
 	<AUTHOR>Alain BARBET (alian@cpan.org)</AUTHOR>
@@ -9,7 +9,7 @@
 		<DEPENDENCY NAME="Test-More" VERSION="0,0,0,0" />
 		<DEPENDENCY NAME="URI-URL" VERSION="0,0,0,0" />
 		<OS NAME="linux" />
-		<ARCHITECTURE NAME="i686-linux-thread-multi-64all-ld" />
+		<ARCHITECTURE NAME="i386-linux-thread-multi" />
 		<CODEBASE HREF="" />
 	</IMPLEMENTATION>
 </SOFTPKG>

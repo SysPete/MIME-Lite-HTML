@@ -5,6 +5,11 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.19  2004/03/16 15:18:57  alian
+# - Add Url param in new for direct call of parse & send
+# - Correct a problem in parsing of html elem background
+# - Re-indent some methods
+#
 # Revision 1.18  2003/08/08 09:37:42  alian
 # Fix test case and cid method
 #
@@ -21,38 +26,6 @@ package MIME::Lite::HTML;
 # - Correct bug with relative anchor '/'. Tks to Keith D. Zimmerman for
 # report.
 #
-# Revision 1.14  2002/08/25 17:11:34  alian
-# Correct a dammed typo error
-#
-# Revision 1.13  2002/08/25 17:05:57  alian
-# - Change some regexp for be less restrictive with html tags: img a href,
-# ccs and javascript regexp has been updated. Thanks to Alberto Saez Torres
-# for patch.
-# - Add \Q\E in needed regexp for catch url with + or other. Thanks to
-# François-Georges Cloutier for report.
-# - Add a return in fill_template to avoid in warning if no template is in
-# use. Thanks to Miguel Manso for report.
-#
-# Revision 1.12  2002/01/07 20:18:53  alian
-# - Add replace links for frame & iframe
-# - Correct incorrect parsing in include_css for <LINK REL="SHORTCUT ICON">
-# tag. Tks to doggy@miniasp.com for idea and patch
-#
-# Revision 1.11  2001/12/13 22:42:33  alian
-# - Correct a bug with relative anchor
-#
-# Revision 1.10  2001/11/07 10:52:43  alian
-# - Add feature for get restricted url. Add LoginDetails parameter for that
-# (tks to Leon.Halford@ing-barings.com for idea)
-# - Change error in POD doc rfc2257 => rfc2557 (tks to
-# justin.zaglio@morganstanley.com)
-# - Correct warning when $url_html is undef
-#
-# Revision 1.9  2001/11/07 08:41:39  alian
-# - From tosh@c4.ca:  Add feature for parsing/include flash movie
-# - From Alian: Rebuild parse and create_image_part method for always use
-# create_image_part when I add a MIME part. Add comment and POD doc.
-#
 # See Changes files for older changes
 
 use LWP::UserAgent;
@@ -66,7 +39,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.18 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.19 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -74,130 +47,130 @@ my $LOGINDETAILS;
 # redefine get_basic_credentials
 #------------------------------------------------------------------------------
 {
-    package RequestAgent;
-    use vars qw(@ISA);
-    @ISA = qw(LWP::UserAgent);
+  package RequestAgent;
+  use vars qw(@ISA);
+  @ISA = qw(LWP::UserAgent);
 
-    sub new
-    { 
-	my $self = LWP::UserAgent::new(@_);
-	$self;
-    }
-
-    sub get_basic_credentials
-	{	
-	  my($self, $realm, $uri) = @_;
-	  # Use parameter of MIME-Lite-HTML, key LoginDetails
-	  if (defined $LOGINDETAILS) { return split(':', $LOGINDETAILS, 2); } 
-	  # Ask user on STDIN
-	  elsif (-t) 
-	    {
-		my $netloc = $uri->host_port;
-		print "Enter username for $realm at $netloc: ";
-		my $user = <STDIN>;
-		chomp($user);
-		# 403 if no user given
-		return (undef, undef) unless length $user;
-		print "Password: ";
-		system("stty -echo");
-		my $password = <STDIN>;
-		system("stty echo");
-		print "\n";  # because we disabled echo
-		chomp($password);
-		return ($user, $password);
-	    }
-	  # Damm we got 403 with CGI (use param LoginDetails)  ...
-	  else { return (undef, undef) }
-	}
+  sub new {
+    my $self = LWP::UserAgent::new(@_);
+    $self;
   }
+
+  sub get_basic_credentials {	
+    my($self, $realm, $uri) = @_;
+    # Use parameter of MIME-Lite-HTML, key LoginDetails
+    if (defined $LOGINDETAILS) { return split(':', $LOGINDETAILS, 2); } 
+    # Ask user on STDIN
+    elsif (-t) {
+      my $netloc = $uri->host_port;
+      print "Enter username for $realm at $netloc: ";
+      my $user = <STDIN>;
+      chomp($user);
+      # 403 if no user given
+      return (undef, undef) unless length $user;
+      print "Password: ";
+      system("stty -echo");
+      my $password = <STDIN>;
+      system("stty echo");
+      print "\n";  # because we disabled echo
+      chomp($password);
+      return ($user, $password);
+    }
+    # Damm we got 403 with CGI (use param LoginDetails)  ...
+    else { return (undef, undef) }
+  }
+}
 
 #------------------------------------------------------------------------------
 # new
 #------------------------------------------------------------------------------
-sub new
-  {
-    my $class = shift;
-    my $self = {};
-    bless $self, $class;
-    my %param = @_;
-    # Agent name
-    $self->{_AGENT} = new RequestAgent;
-    $self->{_AGENT}->agent("MIME-Lite-HTML $VERSION");
-    $self->{_AGENT}->from('mime-lite-html@alianwebserver.com' );
-    # Set debug level
-    if ($param{'Debug'})
-      {
-	$self->{_DEBUG} = 1;
-	delete $param{'Debug'};
-      }
-    # Set Login information
-    if ($param{'LoginDetails'})
-      {
-	  $LOGINDETAILS = $param{'LoginDetails'};
-	  delete $param{'LoginDetails'};
-      }
-    # Set type of include to do
-    if ($param{'IncludeType'})
-      {
-	die "IncludeType must be in 'extern', 'cid' or 'location'\n" if
-	  ( ($param{'IncludeType'} ne 'extern') and
-	    ($param{'IncludeType'} ne 'cid') and
-	    ($param{'IncludeType'} ne 'location'));	
-	$self->{_include} = $param{'IncludeType'};
-	delete $param{'IncludeType'};
-      }
-    # Defaut type: use a Content-Location field
-    else {$self->{_include}='location';}
+sub new {
+  my $class = shift;
+  my $self = {};
+  bless $self, $class;
+  my %param = @_;
+  # Agent name
+  $self->{_AGENT} = new RequestAgent;
+  $self->{_AGENT}->agent("MIME-Lite-HTML $VERSION");
+  $self->{_AGENT}->from('mime-lite-html@alianwebserver.com' );
 
-## Added by Michalis@linuxmail.org to manipulate non-us mails
-   if ($param{'TextCharset'}) {
-     $self->{_textcharset}=$param{'TextCharset'};
-     delete $param{'TextCharset'};
-   }
-   else { $self->{_textcharset}='iso-8859-1'; }
-   if ($param{'HTMLCharset'}) {
-     $self->{_htmlcharset}=$param{'HTMLCharset'};
-     delete $param{'HTMLCharset'};
-    }
-   else { $self->{_htmlcharset}='iso-8859-1'; }
-
-   if ($param{'TextEncoding'}) {
-     $self->{_textencoding}=$param{'TextEncoding'};
-     delete $param{'TextEncoding'};
-    }
-   else { $self->{_textencoding}='7bit'; }
-
-   if ($param{'HTMLEncoding'}) {
-     $self->{_htmlencoding}=$param{'HTMLEncoding'};
-     delete $param{'HTMLEncoding'};
-    }
-   else { $self->{_htmlencoding}='quoted-printable'; }
-## End. Default values remain as they were initially set.
-## No need to change existing scripts if you send US-ASCII. 
-## If you DON't send us-ascii, you wouldn't be able to use 
-## MIME::Lite::HTML anyway :-)
-
-    # Set proxy to use to get file
-    if ($param{'Proxy'})
-      {
-	$self->{_AGENT}->proxy('http',$param{'Proxy'}) ;
-	print "Set proxy for http : ", $param{'Proxy'},"\n" 
-	  if ($self->{_DEBUG});
-	delete $param{'Proxy'};
-      }
-    # Set hash to use with template
-    if ($param{'HashTemplate'})
-      {
-	$param{'HashTemplate'} = ref($param{'HashTemplate'}) eq "HASH" 
-	  ? $param{'HashTemplate'} : %{$param{'HashTemplate'}};
-	$self->{_HASH_TEMPLATE}= $param{'HashTemplate'};
-	delete $param{'HashTemplate'};
-      }
-    $self->{_param} = \%param;
-    # Ok I hope I known what I do ;-)
-    MIME::Lite->quiet(1);
-    return $self;
+  # Set debug level
+  if ($param{'Debug'}) {
+    $self->{_DEBUG} = 1;
+    delete $param{'Debug'};
   }
+
+  # Set Login information
+  if ($param{'LoginDetails'}) {
+    $LOGINDETAILS = $param{'LoginDetails'};
+    delete $param{'LoginDetails'};
+  }
+  # Set type of include to do
+  if ($param{'IncludeType'}) {
+    die "IncludeType must be in 'extern', 'cid' or 'location'\n" if
+      ( ($param{'IncludeType'} ne 'extern') and
+	($param{'IncludeType'} ne 'cid') and
+	($param{'IncludeType'} ne 'location'));	
+    $self->{_include} = $param{'IncludeType'};
+    delete $param{'IncludeType'};
+  } # Defaut type: use a Content-Location field
+  else {$self->{_include}='location';}
+
+  ## Added by Michalis@linuxmail.org to manipulate non-us mails
+  if ($param{'TextCharset'}) {
+    $self->{_textcharset}=$param{'TextCharset'};
+    delete $param{'TextCharset'};
+  } else { $self->{_textcharset}='iso-8859-1'; }
+  if ($param{'HTMLCharset'}) {
+    $self->{_htmlcharset}=$param{'HTMLCharset'};
+    delete $param{'HTMLCharset'};
+  } else { $self->{_htmlcharset}='iso-8859-1'; }
+  if ($param{'TextEncoding'}) {
+    $self->{_textencoding}=$param{'TextEncoding'};
+    delete $param{'TextEncoding'};
+  } else { $self->{_textencoding}='7bit'; }
+  if ($param{'HTMLEncoding'}) {
+    $self->{_htmlencoding}=$param{'HTMLEncoding'};
+    delete $param{'HTMLEncoding'};
+  } else { $self->{_htmlencoding}='quoted-printable'; }
+  ## End. Default values remain as they were initially set.
+  ## No need to change existing scripts if you send US-ASCII. 
+  ## If you DON't send us-ascii, you wouldn't be able to use 
+  ## MIME::Lite::HTML anyway :-)
+
+  # Set proxy to use to get file
+  if ($param{'Proxy'}) {
+    $self->{_AGENT}->proxy('http',$param{'Proxy'}) ;
+    print "Set proxy for http : ", $param{'Proxy'},"\n" 
+      if ($self->{_DEBUG});
+    delete $param{'Proxy'};
+  }
+
+  # Set hash to use with template
+  if ($param{'HashTemplate'}) {
+    $param{'HashTemplate'} = ref($param{'HashTemplate'}) eq "HASH" 
+      ? $param{'HashTemplate'} : %{$param{'HashTemplate'}};
+    $self->{_HASH_TEMPLATE}= $param{'HashTemplate'};
+    delete $param{'HashTemplate'};
+  }
+
+  # Ok I hope I known what I do ;-)
+  MIME::Lite->quiet(1);
+
+  # direct call of new parse & send
+  my $url;
+  if ($param{'Url'}) {
+    $url = $param{'Url'};
+    delete $param{'Url'};
+  }
+  $self->{_param} = \%param;
+  if ($url) {
+    my $m = $self->parse($url);
+    $m->send;
+  }
+
+  return $self;
+}
 
 #------------------------------------------------------------------------------
 # parse
@@ -298,7 +271,7 @@ sub parse
 	    # Replace relative url with absolute
 	    my $v = ($self->{_include} eq 'cid') ?
 	      "cid:".$self->cid($urlAbs) : $urlAbs;
-	    $gabarit=~s/background \s* = \s* [\"']? \Q$$url[2]\E\" ([\"'>])
+	    $gabarit=~s/background \s* = \s* [\"']? \Q$$url[2]\E ([\"'>])
                        /pattern_href($v,"background",$1)/giemx;
             # Exit with extern configuration, don't include image
             # else add part to mail
@@ -387,7 +360,7 @@ sub parse
 	}
 
     # Create MIME-Lite object
-    $self->build_mime_object($gabarit,$gabarit_txt,@mail);
+    $self->build_mime_object($gabarit, $gabarit_txt, \@mail);
 
     return $self->{_MAIL};
   }
@@ -395,239 +368,228 @@ sub parse
 #------------------------------------------------------------------------------
 # size
 #------------------------------------------------------------------------------
-sub size
-  {
-    my ($self)=shift;
-    return length($self->{_MAIL}->as_string);
-  }
-
+sub size  {
+  my ($self)=shift;
+  return length($self->{_MAIL}->as_string);
+}
 
 #------------------------------------------------------------------------------
 # build_mime_object
 #------------------------------------------------------------------------------
-sub build_mime_object
-  {
-    my ($self,$html,$txt,@mail)=@_;
-    my ($txt_part,$mail);
-    # Create part for HTML
-    my $part = new MIME::Lite
-      'Type'      =>'TEXT',
-      'Encoding'  => $self->{_htmlencoding},
-      'Data'      =>$html;
-    $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
-    # Remove some header for Eudora client in HTML and related part
-    $part->replace("MIME-Version" => "");
-    $part->replace('X-Mailer' =>"");
-    $part->replace('Content-Disposition' =>"");
+sub build_mime_object {
+  my ($self,$html,$txt,$ref_mail)=@_;
+  my ($txt_part,$mail);
 
-    # Create part for text if needed
-    if ($txt)
-      {
-	$txt_part = new MIME::Lite 
-	  'Type'      => 'TEXT',  
-	  'Encoding'  => $self->{_textencoding}, 
+  # Create part for HTML
+  my $part = new MIME::Lite
+    'Type'      =>'TEXT',
+     'Encoding'  => $self->{_htmlencoding},
+     'Data'      =>$html;
+  $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
+  # Remove some header for Eudora client in HTML and related part
+  $part->replace("MIME-Version" => "");
+  $part->replace('X-Mailer' =>"");
+  $part->replace('Content-Disposition' =>"");
+
+  # Create part for text if needed
+  if ($txt) {
+    $txt_part = new MIME::Lite 
+      'Type'      => 'TEXT',  
+	'Encoding'  => $self->{_textencoding}, 
 	  'Data'      => $txt;
-	$txt_part->attr("content-type" => 
-			"text/plain; charset=".$self->{_textcharset});
-	# Remove some header for Eudora client
-	$txt_part->replace("MIME-Version" => "");
-	$txt_part->replace("X-Mailer" => "");
-	$txt_part->replace("Content-Disposition" => "");
-      }
-    # Only text. No Html
-    if ($txt and !$html) 
-	{
-	  my $ref=$self->{_param};
-        # create simple e-mail.
-        $mail = new MIME::Lite (%$ref);
-        $mail->data($txt);
-        # Remove some header for Eudora client
-	  $mail->replace("MIME-Version" => "");
-	  $mail->replace("X-Mailer" => "");
-	  $mail->replace("Content-Disposition" => "");
-	}
-    # Set content type of main part
-    # If only HTML part create a text/html part
-    elsif (!$txt and !@mail)
-      {
-	  my $ref = $self->{_param};
-	  $mail = new MIME::Lite (%$ref);
-	  $mail->attr("content-type" => 
-			  "text/html; charset=".$self->{_htmlcharset});
-	  $mail->data($html);
-      }
-    # If images and html and no text, multipart/related
-    elsif (@mail and !$txt)
-      {
-	my $ref=$self->{_param};
-	$$ref{'Type'} = "multipart/related";	
-	$mail = new MIME::Lite (%$ref);
-	# Attach HTML part to related part
-	$mail->attach($part);
-	# Attach each image to related part
-	foreach (@mail) {$mail->attach($_);} # Attach list of part
-	#$mail->replace("MIME-Version" => "");
-	$mail->replace("Content-Disposition" => "");
-      }
-    # Else if html and text and no images, multipart/alternative
-    elsif ($txt and !@mail)
-      {
-	my $ref=$self->{_param};
-	$$ref{'Type'} = "multipart/alternative";	
-	$mail = new MIME::Lite (%$ref);
-	$mail->attach($txt_part); # Attach text part
-	$mail->attach($part); # Attach HTML part	
-      }
-    # Else (html, txt and images) mutilpart/alternative
-    else
-      {
-	my $ref=$self->{_param};
-	$$ref{'Type'} = "multipart/alternative";	
-	$mail = new MIME::Lite (%$ref); 
-	# Create related part
- 	my $rel = new MIME::Lite ('Type'=>'multipart/related');
-	$rel->replace("Content-transfer-encoding" => "");
-	$rel->replace("MIME-Version" => "");
-	$rel->replace("X-Mailer" => "");
-	# Attach text part to alternative part
-	$mail->attach($txt_part);
-	# Attach HTML part to related part
-	$rel->attach($part);
-	# Attach each image to related part
-	foreach (@mail) {$rel->attach($_);}
-	# Attach related part to alternative part
-	$mail->attach($rel);
-      }
-    $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
-    $self->{_MAIL} = $mail;
+    $txt_part->attr("content-type" => 
+		    "text/plain; charset=".$self->{_textcharset});
+    # Remove some header for Eudora client
+    $txt_part->replace("MIME-Version" => "");
+    $txt_part->replace("X-Mailer" => "");
+    $txt_part->replace("Content-Disposition" => "");
   }
+
+  # Only text. No Html
+  if ($txt and !$html) {
+    my $ref=$self->{_param};
+    # create simple e-mail.
+    $mail = new MIME::Lite (%$ref);
+    $mail->data($txt);
+    $self->addons();
+    # Remove some header for Eudora client
+    $mail->replace("MIME-Version" => "");
+    $mail->replace("X-Mailer" => "");
+    $mail->replace("Content-Disposition" => "");
+  }
+
+  # Set content type of main part
+  # If only HTML part create a text/html part
+  elsif (!$txt and !@$ref_mail) {
+    my $ref = $self->{_param};
+    $mail = new MIME::Lite (%$ref);
+    $mail->attr("content-type" => 
+		"text/html; charset=".$self->{_htmlcharset});
+    $mail->data($html);
+  }
+
+  # If images and html and no text, multipart/related
+  elsif (@$ref_mail and !$txt) {
+    my $ref=$self->{_param};
+    $$ref{'Type'} = "multipart/related";	
+    $mail = new MIME::Lite (%$ref);
+    # Attach HTML part to related part
+    $mail->attach($part);
+    # Attach each image to related part
+    foreach (@$mail) {$mail->attach($_);} # Attach list of part
+    #$mail->replace("MIME-Version" => "");
+    $mail->replace("Content-Disposition" => "");
+  }
+
+  # Else if html and text and no images, multipart/alternative
+  elsif ($txt and !@$ref_mail) {
+    my $ref=$self->{_param};
+    $$ref{'Type'} = "multipart/alternative";	
+    $mail = new MIME::Lite (%$ref);
+    $mail->attach($txt_part); # Attach text part
+    $mail->attach($part); # Attach HTML part	
+  }
+
+  # Else (html, txt and images) mutilpart/alternative
+  else {
+    my $ref=$self->{_param};
+    $$ref{'Type'} = "multipart/alternative";	
+    $mail = new MIME::Lite (%$ref); 
+    # Create related part
+    my $rel = new MIME::Lite ('Type'=>'multipart/related');
+    $rel->replace("Content-transfer-encoding" => "");
+    $rel->replace("MIME-Version" => "");
+    $rel->replace("X-Mailer" => "");
+    # Attach text part to alternative part
+    $mail->attach($txt_part);
+    # Attach HTML part to related part
+    $rel->attach($part);
+    # Attach each image to related part
+    foreach (@$ref_mail) {$rel->attach($_);}
+    # Attach related part to alternative part
+    $mail->attach($rel);
+  }
+
+  $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
+  $self->{_MAIL} = $mail;
+}
 
 #------------------------------------------------------------------------------
 # include_css
 #------------------------------------------------------------------------------
-sub include_css
-  {
-    my ($self,$gabarit,$root)=@_;
-    sub pattern_css
-      {
-	my ($self,$url,$milieu,$fin,$root)=@_;
-	# Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
-	if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
-        { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
-	# Complete url
-	my $ur = URI::URL->new($url, $root)->abs;
-	print "Include CSS file $ur\n" if $self->{_DEBUG};
-	my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
-	print "Ok file downloaded\n" if $self->{_DEBUG};
-	return      '<style type="text/css">'."\n".
-	  '<!--'."\n".$res2->content.
-	    "\n-->\n</style>\n";
-      }
-    $gabarit=~s/<link([^<>]*?)href\s*=\s*"?([^\" ]*)"?([^>]*)>
-      /$self->pattern_css($2,$1,$3,$root)/iegmx;
-    print "Done CSS\n" if ($self->{_DEBUG});
-    return $gabarit;
+sub include_css(\%$$) {
+  my ($self,$gabarit,$root)=@_;
+  sub pattern_css {
+    my ($self,$url,$milieu,$fin,$root)=@_;
+    # Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
+    if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
+      { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
+    # Complete url
+    my $ur = URI::URL->new($url, $root)->abs;
+    print "Include CSS file $ur\n" if $self->{_DEBUG};
+    my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+    print "Ok file downloaded\n" if $self->{_DEBUG};
+    return      '<style type="text/css">'."\n".
+      '<!--'."\n".$res2->content.
+	"\n-->\n</style>\n";
   }
+  $gabarit=~s/<link([^<>]*?)href\s*=\s*"?([^\" ]*)"?([^>]*)>
+    /$self->pattern_css($2,$1,$3,$root)/iegmx;
+  print "Done CSS\n" if ($self->{_DEBUG});
+  return $gabarit;
+}
 
 
 #------------------------------------------------------------------------------
 # include_javascript
 #------------------------------------------------------------------------------
-sub include_javascript
-  {
-    my ($self,$gabarit,$root)=@_;
-    sub pattern_js
-      {
-	my ($self,$url,$milieu,$fin,$root)=@_;
-	my $ur = URI::URL->new($url, $root)->abs;
-	print "Include Javascript file $ur\n" if $self->{_DEBUG};
-	my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
-	my $content = $res2->content;
-	print "Ok file downloaded\n" if $self->{_DEBUG};
-	return "\n"."<!-- $ur -->\n".
-	  '<script '.$milieu.$fin.">\n".
-	    '<!--'."\n".$content.
-	      "\n-->\n</script>\n";
-      }
-    $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>
-      /$self->pattern_js($2,$1,$3,$root)/iegmx;
-    print "Done Javascript\n" if $self->{_DEBUG};
-    return $gabarit;
+sub include_javascript(\%$$) {
+  my ($self,$gabarit,$root)=@_;
+  sub pattern_js {
+    my ($self,$url,$milieu,$fin,$root)=@_;
+    my $ur = URI::URL->new($url, $root)->abs;
+    print "Include Javascript file $ur\n" if $self->{_DEBUG};
+    my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+    my $content = $res2->content;
+    print "Ok file downloaded\n" if $self->{_DEBUG};
+    return "\n"."<!-- $ur -->\n".
+      '<script '.$milieu.$fin.">\n".
+	'<!--'."\n".$content.
+	  "\n-->\n</script>\n";
   }
+  $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>
+    /$self->pattern_js($2,$1,$3,$root)/iegmx;
+  print "Done Javascript\n" if $self->{_DEBUG};
+  return $gabarit;
+}
 
 
 #------------------------------------------------------------------------------
 # input_image
 #------------------------------------------------------------------------------
-sub input_image
-  {
-    my ($self,$gabarit,$root)=@_;
-    my @mail;
-    sub pattern_input_image
-      {
-	my ($self,$deb,$url,$fin,$base,$ref_tab_mail)=@_;
-	my $ur = URI::URL->new($url, $base)->abs;
-	if ($self->{_include} ne 'extern')
-	  {push(@$ref_tab_mail,$self->create_image_part($ur));}
-	if ($self->{_include} eq 'cid') 
-	  {return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;}
-	else {return '<input '.$deb.' src="'.$ur.'"'.$fin;}
-      }
-    $gabarit=~s/<input([^<>]*)src\s*=\s*"?([^\"'> ]*)"?([^>]*)>
-               /$self->pattern_input_image($1,$2,$3,$root,\@mail)/iegmx;
-    print "Done input image\n" if $self->{_DEBUG};
-    return ($gabarit,@mail);
+sub input_image(\%$$) {
+  my ($self,$gabarit,$root)=@_;
+  my @mail;
+  sub pattern_input_image {
+    my ($self,$deb,$url,$fin,$base,$ref_tab_mail)=@_;
+    my $ur = URI::URL->new($url, $base)->abs;
+    if ($self->{_include} ne 'extern')
+      {push(@$ref_tab_mail,$self->create_image_part($ur));}
+    if ($self->{_include} eq 'cid') 
+      {return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;}
+    else {return '<input '.$deb.' src="'.$ur.'"'.$fin;}
   }
+  $gabarit=~s/<input([^<>]*)src\s*=\s*"?([^\"'> ]*)"?([^>]*)>
+    /$self->pattern_input_image($1,$2,$3,$root,\@mail)/iegmx;
+  print "Done input image\n" if $self->{_DEBUG};
+  return ($gabarit,@mail);
+}
 
 #------------------------------------------------------------------------------
 # create_image_part
 #------------------------------------------------------------------------------
-sub create_image_part
-  {
-    my ($self,$ur)=@_;
-    my ($type, $buff1);
-    # Create MIME type
-    if (lc($ur)=~/\.gif$/i) {$type="image/gif";}
-    elsif (lc($ur)=~/\.jpg$/i) {$type = "image/jpg";}
-    elsif (lc($ur)=~/\.png$/i) {$type = "image/png";}
-    else { $type = "application/x-shockwave-flash"; }
+sub create_image_part {
+  my ($self,$ur, $typ)=@_;
+  my ($type, $buff1);
+  # Create MIME type
+  if ($typ) { $type = $typ; }
+  elsif (lc($ur)=~/\.gif$/i) {$type="image/gif";}
+  elsif (lc($ur)=~/\.jpg$/i) {$type = "image/jpg";}
+  elsif (lc($ur)=~/\.png$/i) {$type = "image/png";}
+  else { $type = "application/x-shockwave-flash"; }
 
-    # Url is already in memory
-    if ($self->{_HASH_TEMPLATE}{$ur})
-	{
-	  print "Using buffer on: ", $ur,"\n" if $self->{_DEBUG};
-	  $buff1 = ref($self->{_HASH_TEMPLATE}{$ur}) eq "ARRAY" 
-	    ? join "", @{$self->{_HASH_TEMPLATE}{$ur}} 
-		: $self->{_HASH_TEMPLATE}{$ur};
-	  delete $self->{_HASH_TEMPLATE}{$ur};
-	}
-    else # Get image
-	{
-	  print "Get img ", $ur,"\n" if $self->{_DEBUG};
-	  my $res2 = $self->{_AGENT}->
-	    request(new HTTP::Request('GET' => $ur));
-	  if (!$res2->is_success) {$self->set_err("Can't get $ur\n");}
-	  $buff1=$res2->content;
-	}
-
-    # Create part
-    my $mail = new MIME::Lite( Data => $buff1, Encoding =>'base64');
-
-    $mail->attr("Content-type"=>$type);
-    # With cid configuration, add a Content-ID field
-    if ($self->{_include} eq 'cid') {
-      $mail->attr('Content-ID' =>'<'.$self->cid($ur).'>');
-    }
-    # Else (location) put a Content-Location field
-    else {$mail->attr('Content-Location'=>$ur);}
-
-    # Remove header for Eudora client
-    $mail->replace("X-Mailer" => "");
-    $mail->replace("MIME-Version" => "");
-    $mail->replace("Content-Disposition" => "");
-
-    return $mail;
+  # Url is already in memory
+  if ($self->{_HASH_TEMPLATE}{$ur}) {
+    print "Using buffer on: ", $ur,"\n" if $self->{_DEBUG};
+    $buff1 = ref($self->{_HASH_TEMPLATE}{$ur}) eq "ARRAY" 
+      ? join "", @{$self->{_HASH_TEMPLATE}{$ur}} 
+	: $self->{_HASH_TEMPLATE}{$ur};
+    delete $self->{_HASH_TEMPLATE}{$ur};
+  } else { # Get image 
+    print "Get img ", $ur,"\n" if $self->{_DEBUG};
+    my $res2 = $self->{_AGENT}->
+      request(new HTTP::Request('GET' => $ur));
+    if (!$res2->is_success) {$self->set_err("Can't get $ur\n");}
+    $buff1=$res2->content;
   }
+
+  # Create part
+  my $mail = new MIME::Lite( Data => $buff1, Encoding =>'base64');
+
+  $mail->attr("Content-type"=>$type);
+  # With cid configuration, add a Content-ID field
+  if ($self->{_include} eq 'cid') {
+    $mail->attr('Content-ID' =>'<'.$self->cid($ur).'>');
+  } else {  # Else (location) put a Content-Location field
+    $mail->attr('Content-Location'=>$ur);
+  }
+
+  # Remove header for Eudora client
+  $mail->replace("X-Mailer" => "");
+  $mail->replace("MIME-Version" => "");
+  $mail->replace("Content-Disposition" => "");
+  return $mail;
+}
 
 #------------------------------------------------------------------------------
 # cid
@@ -638,7 +600,7 @@ sub cid  (\%$) {
   # but as string can get long, I need to revert it to have
   # difference at begin of url to avoid max size of cid
   # I remove scheme always same in a document.
-  $url = substr($url, 7);
+  $url = reverse(substr($url, 7));
   return reverse(split("",unpack("h".length($url),$url))).'@MIME-Lite-HTML-'.
     $VERSION;
 }
@@ -667,43 +629,39 @@ sub link_form
 #------------------------------------------------------------------------------
 # fill_template
 #------------------------------------------------------------------------------
-sub fill_template
-  {
-    my ($self,$masque,$vars)=@_;
-    return unless $masque;
-    my @buf=split(/\n/,$masque);
-    my $i=0;
-    while (my ($n,$v)=each(%$vars))
-      {
-	if ($v) {map {s/<\?\s\$$n\s\?>/$v/gm} @buf;}
-	else {map {s/<\?\s\$$n\s\?>//gm} @buf;}
-	$i++;
-      }
-    return join("\n",@buf);
-     }
+sub fill_template  {
+  my ($self,$masque,$vars)=@_;
+  return unless $masque;
+  my @buf=split(/\n/,$masque);
+  my $i=0;
+  while (my ($n,$v)=each(%$vars)) {
+    if ($v) {map {s/<\?\s\$$n\s\?>/$v/gm} @buf;}
+    else {map {s/<\?\s\$$n\s\?>//gm} @buf;}
+    $i++;
+  }
+  return join("\n",@buf);
+}
 
 #------------------------------------------------------------------------------
 # set_err
 #------------------------------------------------------------------------------
-sub set_err 
-  {
-    my($self,$error) = @_;
-    print $error,"\n" if ($self->{_DEBUG});
-    my @array = @{$self->{_ERRORS}} if ($self->{_ERRORS});
-    push @array, $error;
-    $self->{_ERRORS} = \@array;
-    return 1;    
-  }
+sub set_err {
+  my($self,$error) = @_;
+  print $error,"\n" if ($self->{_DEBUG});
+  my @array = @{$self->{_ERRORS}} if ($self->{_ERRORS});
+  push @array, $error;
+  $self->{_ERRORS} = \@array;
+  return 1;
+}
 
 #------------------------------------------------------------------------------
 # errstr 
 #------------------------------------------------------------------------------
-sub errstr 
-  {
-    my($self) = @_;
-    return @{$self->{_ERRORS}} if ($self->{_ERRORS});
-    return ();
-  }
+sub errstr  {
+  my($self) = @_;
+  return @{$self->{_ERRORS}} if ($self->{_ERRORS});
+  return ();
+}
 
 __END__
 
@@ -717,27 +675,15 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 SYNOPSIS
 
-  #!/usr/bin/perl -w 
-  # A cgi program that do "Mail this page to a friend";
-  # Call this script like this :
-  # script.cgi?email=myfriend@isp.com&url=http://www.go.com
-  use strict;
-  use CGI qw/:standard/;
-  use CGI::Carp qw/fatalsToBrowser/;
-  use MIME::Lite::HTML;
-  
-  my $mailHTML = new MIME::Lite::HTML
-     From     => 'MIME-Lite@alianwebserver.com',
-     To       => param('email'),
-     Subject => 'Your url: '.param('url');
-  
-  my $MIMEmail = $mailHTML->parse(param('url'));
-  $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
-  print header,"Mail envoye (", param('url'), " to ", param('email'),")<br>\n";
+  perl -MMIME::Lite::HTML -e '
+     new MIME::Lite::HTML
+         From     => "MIME-Lite\@alianwebserver.com",
+         To       => "alian\@cpan.org",
+         Url      => "http://localhost/server-status";'
 
 =head1 VERSION
 
-$Revision: 1.18 $
+$Revision: 1.19 $
 
 =head1 DESCRIPTION
 
@@ -915,10 +861,17 @@ Subscribe on http://www.alianwebserver.com/cgi-bin/news_mlh.cgi
 
 Create a new instance of MIME::Lite::HTML.
 
-The hash can have this key : [Proxy], [Debug], [IncludeType], [HashTemplate], 
- [LoginDetails], [TextCharset], [HTMLCharset], [TextEncoding], [HTMLEncoding]
+The hash can have this key : [Url], [Proxy], [Debug], [IncludeType],
+ [HashTemplate], [LoginDetails], [TextCharset], [HTMLCharset],
+ [TextEncoding], [HTMLEncoding]
 
 =over
+
+=item Url
+
+... is url to parse and send. If this param is found, call of parse routine
+and send of mail is done. Else you must use parse routine of MIME::Lite::HTML
+and send of MIME::Lite.
 
 =item Proxy
 
@@ -1156,6 +1109,26 @@ errors which occured inside the parse routine by calling:
 @errors = $mailHTML->errstr;
 
 If no errors where found, it'll return undef.
+
+=head1 CGI Example
+
+  #!/usr/bin/perl -w 
+  # A cgi program that do "Mail this page to a friend";
+  # Call this script like this :
+  # script.cgi?email=myfriend@isp.com&url=http://www.go.com
+  use strict;
+  use CGI qw/:standard/;
+  use CGI::Carp qw/fatalsToBrowser/;
+  use MIME::Lite::HTML;
+  
+  my $mailHTML = new MIME::Lite::HTML
+     From     => 'MIME-Lite@alianwebserver.com',
+     To       => param('email'),
+     Subject => 'Your url: '.param('url');
+  
+  my $MIMEmail = $mailHTML->parse(param('url'));
+  $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
+  print header,"Mail envoye (", param('url'), " to ", param('email'),")<br>\n";
 
 =head1 AUTHOR
 
