@@ -30,6 +30,7 @@ foreach my $it ('cid', 'location') {
     my $rep = $mailHTML->create_image_part($url_file);
     $rep = $rep->as_string;
     $rep =~s/^Date: .*$//gm;
+    $rep=~s/saturne.alianet/$ENV{HOSTNAME}/g;
     if (!$ARGV[0]) {
       open(PROD,">$f.created_by_test")
 	or die "Can't create $f.created_by_test:$!";

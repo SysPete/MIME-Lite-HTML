@@ -5,6 +5,10 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.17  2003/08/07 16:55:08  alian
+# - Fix test case (hostname)
+# - Update POD documentation
+#
 # Revision 1.16  2003/08/07 00:07:57  alian
 # - Use pack for include type == cid: RFC says no '/'.
 # Tks to Cláudio Valente for report.
@@ -59,7 +63,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.16 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.17 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -729,7 +733,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.16 $
+$Revision: 1.17 $
 
 =head1 DESCRIPTION
 
@@ -914,13 +918,17 @@ The hash can have this key : [Proxy], [Debug], [IncludeType], [HashTemplate],
 
 =item Proxy
 
-... is url of proxy to use. Ex: 'Proxy' => 'http://192.168.100.166:8080'
+... is url of proxy to use.
 
-=item Debug 
+  Eg: Proxy => 'http://192.168.100.166:8080'
 
-... is trace to stdout during parsing. Ex: 'Debug' => 1 
+=item Debug
 
-=item IncludeType 
+... is trace to stdout during parsing.
+
+  Eg: Debug => 1
+
+=item IncludeType
 
 ... is method to use when finding images:
 
@@ -946,9 +954,13 @@ so images are fetch when user read mail. (Server must be reachable !)
 ... is a reference to a hash. If present, MIME::Lite::HTML 
 will substitute <? $name ?> with $hash{'HashTemplate'}{'name'} when parse url 
 to send. $hash{'HashTemplate'} can be used too for include data for subelement.
-Ex:
-$hash{'HashTemplate'}{'http://www.al.com/images/sommaire.gif'}=\@data;
-or $hash{'HashTemplate'}{'http://www.al.com/script.js'}="alert("Hello world");;
+Eg:
+
+  $hash{'HashTemplate'}{'http://www.al.com/images/sommaire.gif'}=\@data;
+
+or 
+
+  $hash{'HashTemplate'}{'http://www.al.com/script.js'}="alert("Hello world");;
 
 When module find the image http://www.alianwebserver.com/images/sommaire.gif 
 in buffer, it don't get image with LWP but use data found in 
@@ -958,32 +970,39 @@ $hash{'HashTemplate'}. (See eg/example2.pl)
 
 ... is the couple user:password for use with restricted url. 
 
-  Eg: 'LoginDetails' => 'my_user:my_password'
+  Eg: LoginDetails => 'my_user:my_password'
 
-=item TextCharset 
+=item TextCharset
 
-... is the character set to use for the text part. 
-I.E. 'TextCharset' => 'iso-8859-7' for Greek. If none specified, the default 
-is used (iso-8859-1).
+... is the character set to use for the text part.
 
-=item HTMLCharset 
+  Eg: TextCharset => 'iso-8859-7'
+
+for Greek. If none specified, the default is used (iso-8859-1).
+
+=item HTMLCharset
 
 ... is the character set to use for the html part. 
-I.E. 'HTMLCharset' => 'iso-8859-7' for Greek. If none specified, the default 
-is used (iso-8859-1). Take care, as that option does NOT change the character 
+
+  Eg:  HTMLCharset => 'iso-8859-7'
+
+for Greek. If none specified, the default is used (iso-8859-1).
+Take care, as that option does NOT change the character
 set of the HTML page, it only changes the character set of the mime part.
 
 =item TextEncoding 
 
 ... is the Encoding to be used for the text part (if such a part 
-exists). For example: 'TextEncoding' => 'base64'. If none specified, the 
-default is used (7bit).
+exists). If none specified, the default is used (7bit).
+
+  Eg: TextEncoding => 'base64'
 
 =item HTMLEncoding 
 
-... is the Encoding to be used for the html part. 
-I.E : 'HTMLEncoding' => 'base64'. If none specified, the default is used 
-(quoted-printable).
+... is the Encoding to be used for the html part. If none specified, the 
+default is used (quoted-printable).
+
+  Eg: HTMLEncoding => 'base64'.
 
 =back
 
@@ -1008,8 +1027,11 @@ Parameters:
 
 Url of HTML file to send, can be a local file. If $url is not an
 url (http or https or ftp or file or nntp), $url is used as a buffer.
-Example : http://www.alianwebserver.com, file://c|/tmp/index.html
-or '<img src=toto.gif>'.
+Example : 
+
+  http://www.alianwebserver.com
+  file://c|/tmp/index.html
+  <img src=toto.gif>
 
 =item $url_txt
 
@@ -1099,8 +1121,17 @@ Replace link to formulaire with absolute link
 
 =item fill_template($masque,$vars)
 
- $masque : Path of template
- $vars : hash ref with keys/val to substitue
+=over
+
+=item $masque
+
+Path of template
+
+=item $vars
+
+hash ref with keys/val to substitue
+
+=back
 
 Give template with remplaced variables
 Ex: if $$vars{age}=12, and $masque have

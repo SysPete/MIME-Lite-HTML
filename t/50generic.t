@@ -33,6 +33,7 @@ foreach my $it ('cid', 'location', 'extern') {
     my $rep = $mailHTML->parse($url_file, "A text message");
     $rep = $rep->as_string;
     $rep =~s/^Date: .*$//gm;
+    $rep=~s/saturne.alianet/$ENV{HOSTNAME}/g;
     my @bound;
     while ($rep=~m!boundary="(.*)"!gm) { push(@bound, $1);  }
     foreach (@bound) { $rep=~s/$_/alian-mime-lite-html/g; }
