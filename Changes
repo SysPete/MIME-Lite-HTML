@@ -1,5 +1,9 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.15  2002/10/19 17:54:32  alian
+- Correct bug with relative anchor '/'. Tks to Keith D. Zimmerman for
+report. Add some html for test.
+
 1.14  2002/08/25 17:11:34  alian
   - Correct a dammed typo error
 

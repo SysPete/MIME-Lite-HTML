@@ -8,8 +8,13 @@ use Cwd;
 
 my $t = "/var/tmp/mime-lite-html-tests";
 my $p = cwd;
-my $o = (system("ln -s $p/t $t")==0);
+my $o = 1;
+$o=(system("ln -s $p/t $t")==0);
 my @files_to_test = glob("$t/docs/*.html");
+if ($ARGV[0] && $ARGV[0] ne 'all') {
+  undef @files_to_test; 
+  push(@files_to_test, $ARGV[0]); 
+}
 if ($o) {  plan tests => $#files_to_test+1; }
 else { plan skip_all => "Error on link ".$p."/t!"; }
 foreach my $f (@files_to_test) {
@@ -20,12 +25,12 @@ foreach my $f (@files_to_test) {
      From     => 'MIME-Lite@alianwebserver.com',
      To       => 'MIME-Lite@alianwebserver.com',
      Subject  => 'Mail in HTML with images',
-     Debug    => 0
+     Debug    => ($ARGV[0] ? 1 : 0)
      );
   my $url_file = "file://$f";
   print $url_file,"\n";
   my $rep = 
-    $mailHTML->parse($url_file)->as_string;
+    $mailHTML->parse($url_file, undef, ($ARGV[1]|| undef))->as_string;
   $rep =~s/^Date: .*$//gm;
   my $ib = 'Content-Type: multipart/related; boundary';
   if ($rep=~m!^$ib="(.*)"!m) {
@@ -42,9 +47,13 @@ foreach my $f (@files_to_test) {
     is($r, "", $ref);
     unlink("$f.created_by_test");
   }
-  else {
-    print "Create $ref\n";
-    open(F,">$ref") or die "Can't create $ref:$!\n";
+  elsif ($f eq $ARGV[0]) {
+    ok(open(F,">$ref"),"Create $ref");
+    print F $rep;
+    close(F);
+    }
+  elsif ($ARGV[0] && $ARGV[0] eq 'all') {
+    ok(open(F,">$ref"),"Create $ref");
     print F $rep;
     close(F);
     }

@@ -5,6 +5,10 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.15  2002/10/19 17:54:32  alian
+# - Correct bug with relative anchor '/'. Tks to Keith D. Zimmerman for
+# report.
+#
 # Revision 1.14  2002/08/25 17:11:34  alian
 # Correct a dammed typo error
 #
@@ -37,40 +41,7 @@ package MIME::Lite::HTML;
 # - From Alian: Rebuild parse and create_image_part method for always use
 # create_image_part when I add a MIME part. Add comment and POD doc.
 #
-# Revision 1.8  2001/10/29 18:44:11  alian
-# - From Emiliano Bruni <bruni@micso.it>:
-#  - Modify css link search for match file with no .css extension
-#  - Now $html in parse may be empty. It will be sent a simple message
-#    containing just text
-#  - Correct bug in relative url replace that lost space between "a" and
-#    "href"
-# - From Alian:
-#  - Correct bug with empty link
-#  - Add pod doc for win install (ppm)
-#  - Update example to do a "Send this page to a friend"
-#
-# Revision 1.7  2001/10/23 21:52:54  alian
-# - Correct bug with empty background image
-#
-# Revision 1.6  2001/10/21 22:25:27  alian
-# - Add needed dependancies in Makefile.PL
-#
-# Revision 1.5  2001/07/27 12:40:44  alian
-# - Add support of custom encodings and charsets for the text and the html 
-# parts (Thanks to michalis@linuxmail.org for patch)
-#
-# Revision 1.4  2001/05/29 22:15:27  alian
-# - Add search and replace for the text part (tks to christopher@thedial.com)
-#
-# Revision 1.3  2001/05/05 22:18:10  alian
-# - Add feature of  IncludeImage key in constructor: now module can use
-# "Content-Location" field, "Content-CID field" or not include images and 
-# only make an absolute link.
-# - New construction of MIME message: module send multipart only if needed
-# - Correct an incorrect use of LWP-Agent constructor to avoid warning 
-# messages(tks to StevenBenbow@quintessa.org)
-# - Correct a strange error that occur with URI::http if i don't chomp url
-# before call it (tks to Maarten Veerman <mtveerman@mindless.com>)
+# See Changes files for older changes
 
 use LWP::UserAgent;
 use HTML::LinkExtor;
@@ -83,7 +54,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.14 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.15 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -233,7 +204,7 @@ sub parse
         if (!$res->is_success) 
 	    {$self->set_err("Can't fetch $url_page (".$res->message.")");}
         else {$gabarit = $res->content;}
-        $racinePage=$res->base;
+        $racinePage=$url1 || $res->base;
 	}
     else {$gabarit=$url_page;$racinePage=$url1;}
 
@@ -271,11 +242,17 @@ sub parse
     # Change target action for form
     $gabarit = $self->link_form($gabarit,$racinePage);
 
+    sub pattern_href {
+      my ($url,$balise, $sep)=@_;
+      my $b=" $balise=\"$url\"";
+      $b.=$sep if ($sep ne '"' and $sep ne "'");
+      return $b;
+    }
     # Scan each part found by linkExtor
     my (%images_read,%url_remplace);
     foreach my $url (@l)
 	{
-	  #print "[0] $$url[0] \n [1] $$url[1]\n[2]  $$url[2]\n";
+#	  print "[0] $$url[0] \n [1] $$url[1]\n[2]  $$url[2]\n";
 	  my $urlAbs = URI::WithBase->new($$url[2],$racinePage)->abs;
 	  chomp $urlAbs; # Sometime a strange cr/lf occur
 
@@ -286,8 +263,8 @@ sub parse
 		  ($$url[2]!~m!^\#!))     && # ni les ancres
 		 (!$url_remplace{$urlAbs}) ) # ni les urls deja remplacees
 	    {
-		$gabarit=~s/\s href= [\"']? \Q$$url[2]\E [\"']?
-		           / href="$urlAbs"/gimx;
+		$gabarit=~s/\s href \s* = \s* [\"']? \Q$$url[2]\E ([\"'>])
+		           /pattern_href($urlAbs,"href",$1)/giemx;
 		print "Replace ",$$url[2]," with ",$urlAbs,"\n" 
 		  if ($self->{_DEBUG});
 		$url_remplace{$urlAbs}=1;
@@ -297,23 +274,22 @@ sub parse
 	  elsif ( (lc($$url[0] eq 'iframe') || lc($$url[0] eq 'frame')) &&
 		   (lc($$url[1]) eq 'src') && ($$url[2]) )
 	    {
-		$gabarit=~s/\s src= [\"']? \Q$$url[2]\E [\"']?
-		           / src="$urlAbs"/gimx;
+		$gabarit=~s/\s src \s* = \s* [\"']? \Q$$url[2]\E ([\"'>])
+		           /pattern_href($urlAbs,"src",$1)/giemx;
 		print "Replace ",$$url[2]," with ",$urlAbs,"\n"
 		  if ($self->{_DEBUG});
 		$url_remplace{$urlAbs}=1;
 	    }
 
 	  # For background images
-	  elsif ((lc($$url[1]) eq 'background') && ($$url[2]))
-	   {
-	     # Replace relative url with absolute
-	     my $v = ($self->{_include} eq 'cid') ? 
-		 "background=\"cid:$urlAbs\"" : "background=\"$urlAbs\"";
-	     $gabarit=~s/background=\"\Q$$url[2]\E\"/$v/im;
-	     # Exit with extern configuration, don't include image
-	     # else add part to mail
-	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+	  elsif ((lc($$url[1]) eq 'background') && ($$url[2])) {
+	    # Replace relative url with absolute
+	    my $v = ($self->{_include} eq 'cid') ? "cid:$urlAbs" : $urlAbs;
+	    $gabarit=~s/background \s* = \s* [\"']? \Q$$url[2]\E\" ([\"'>])
+                       /pattern_href($v,"background",$1)/giemx;
+            # Exit with extern configuration, don't include image
+            # else add part to mail
+	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
 		 {
 		   $images_read{$urlAbs} = 1;
 		   push(@mail, $self->create_image_part($urlAbs)); 
@@ -327,8 +303,9 @@ sub parse
 	     $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
 	     # Replace relative url with absolute
 	     my $v = ($self->{_include} eq 'cid') ?
-		 "src=\"cid:$urlAbs\"" : "src=\"$urlAbs\"";
-	     $gabarit=~s/src=\"\Q$$url[4]\E\"/$v/im;
+		 "cid:$urlAbs" : $urlAbs;
+	     $gabarit=~s/src \s = \s [\"'] \Q$$url[4]\E ([\"'>])
+                        /pattern_href($v,"src",$1)/giemx;
 	     # Exit with extern configuration, don't include image
 	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
 		 {
@@ -341,21 +318,22 @@ sub parse
 	  # Need to add "param" to Tagset.pm in the linkElements definition:
 	  # 'param' => ['name', 'value'],
 	  # Tks to tosh@c4.ca for that
-	  elsif (lc($$url[0]) eq 'param' && lc($$url[2]) eq 'movie' && $$url[4])
-	    {
-		# rebuild $urlAbs
-		$urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
-		# Replace relative url with absolute
-		my $v = ($self->{_include} eq 'cid') ?
-		  "value=\"cid:$urlAbs\"" : "value=\"$urlAbs\"";
-		$gabarit=~s/value=\"\Q$$url[4]\E\"/$v/im;
-		# Exit with extern configuration, don't include image
-		if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
-		  {
-		    $images_read{$urlAbs}=1;
-		    push(@mail, $self->create_image_part($urlAbs));
-		  }
-	    }
+	  elsif (lc($$url[0]) eq 'param' && lc($$url[2]) eq 'movie' 
+		 && $$url[4]) {
+	    # rebuild $urlAbs
+	    $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
+	    # Replace relative url with absolute
+	    my $v = ($self->{_include} eq 'cid') ?
+	      "cid:$urlAbs" : $urlAbs;
+	    $gabarit=~s/value \s* = \s* [\"'] \Q$$url[4]\E ([\"'>])
+                       /pattern_href($v,"value",$1)/giemx;
+	    # Exit with extern configuration, don't include image
+	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+	      {
+		$images_read{$urlAbs}=1;
+		push(@mail, $self->create_image_part($urlAbs));
+	      }
+	  }
 
 	  # For new images create part
 	  # Exit with extern configuration, don't include image
@@ -391,7 +369,7 @@ sub parse
 	  $gabarit=$self->fill_template($gabarit,$self->{_HASH_TEMPLATE}) 
 	    if ($gabarit);
 	  $gabarit_txt=$self->fill_template($gabarit_txt,
-							$self->{_HASH_TEMPLATE});
+					    $self->{_HASH_TEMPLATE});
 	}
 
     # Create MIME-Lite object
@@ -597,7 +575,7 @@ sub create_image_part
     # Create MIME type
     if (lc($ur)=~/\.gif$/i) {$type="image/gif";}
     elsif (lc($ur)=~/\.jpg$/i) {$type = "image/jpg";}
-    elsif (lc($ur)=~/\.jpg$/i) {$type = "image/png";}
+    elsif (lc($ur)=~/\.png$/i) {$type = "image/png";}
     else { $type = "application/x-shockwave-flash"; }
 
     # Url is already in memory
@@ -727,7 +705,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.14 $
+$Revision: 1.15 $
 
 =head1 DESCRIPTION
 
