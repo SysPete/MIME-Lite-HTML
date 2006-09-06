@@ -5,6 +5,14 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.22  2006/09/06 14:46:42  alian
+# release 1.22:
+# - Fix rt#19656: unknown URI schemes cause rewrite to fail
+# - Fix rt#17385: make test semi-panics
+# - Fix rt#7841:  Text-Only Encoding Ignored
+# - Fix rt#21339: no license or copyright information provided
+# - Fix rt#19655: include_css is far too aggressive
+#
 # Revision 1.21  2004/04/15 22:59:33  alian
 # fix for 1.20 and bad ref for tests
 #
@@ -45,7 +53,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.21 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.22 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -179,6 +187,15 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
+# absUrl
+#------------------------------------------------------------------------------
+sub absUrl($$) {
+  # rt 19656 : unknown URI schemes cause rewrite to fail
+  my $rep = eval { URI::WithBase->new($_[0], $_[1])->abs; };
+  return ($rep ? $rep : $_[0]);
+}
+
+#------------------------------------------------------------------------------
 # parse
 #------------------------------------------------------------------------------
 sub parse
@@ -241,10 +258,8 @@ sub parse
     }
     # Scan each part found by linkExtor
     my (%images_read,%url_remplace);
-    foreach my $url (@l)
-	{
-#	  print "[0] $$url[0] \n [1] $$url[1]\n[2]  $$url[2]\n";
-	  my $urlAbs = URI::WithBase->new($$url[2],$racinePage)->abs;
+    foreach my $url (@l) {
+	  my $urlAbs = absUrl($$url[2],$racinePage);
 	  chomp $urlAbs; # Sometime a strange cr/lf occur
 
 	  # Replace relative href found to absolute one
@@ -292,7 +307,7 @@ sub parse
 	  elsif (lc($$url[0]) eq 'embed' && $$url[4]) 
 	   {
 	     # rebuild $urlAbs
-	     $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
+	     $urlAbs = absUrl($$url[4],$racinePage);
 	     # Replace relative url with absolute
 	     my $v = ($self->{_include} eq 'cid') ?
 		 "cid:$urlAbs" : $urlAbs;
@@ -313,7 +328,7 @@ sub parse
 	  elsif (lc($$url[0]) eq 'param' && lc($$url[2]) eq 'movie' 
 		 && $$url[4]) {
 	    # rebuild $urlAbs
-	    $urlAbs = URI::WithBase->new($$url[4],$racinePage)->abs;
+	    $urlAbs = absUrl($$url[4],$racinePage);
 	    # Replace relative url with absolute
 	    my $v = ($self->{_include} eq 'cid') ?
 	      "cid:".$self->cid($urlAbs) : $urlAbs;
@@ -340,12 +355,11 @@ sub parse
     # Replace in HTML link with image with cid:key
     sub pattern_image_cid {
       my $sel = shift;
-      return '<img '.$_[0].'src="cid:'.
-	$sel->cid(URI::WithBase->new($_[1],$_[2])->abs).'"';
+      return '<img '.$_[0].'src="cid:'.$sel->cid(absUrl($_[1],$_[2])).'"';
     }
     # Replace relative url for image with absolute
     sub pattern_image {
-      return '<img '.$_[0].'src="'.URI::WithBase->new($_[1],$_[2])->abs.'"';}
+      return '<img '.$_[0].'src="'.absUrl($_[1],$_[2]).'"';}
 
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
@@ -366,7 +380,7 @@ sub parse
 	}
 
     # Create MIME-Lite object
-    $self->build_mime_object($gabarit, $gabarit_txt, \@mail);
+    $self->build_mime_object($gabarit, $gabarit_txt || undef,  \@mail);
 
     return $self->{_MAIL};
   }
@@ -384,58 +398,42 @@ sub size  {
 #------------------------------------------------------------------------------
 sub build_mime_object {
   my ($self,$html,$txt,$ref_mail)=@_;
-  my ($txt_part,$mail);
-
-  # Create part for HTML
-  my $part = new MIME::Lite
-    'Type'      =>'TEXT',
-     'Encoding'  => $self->{_htmlencoding},
-     'Data'      =>$html;
-  $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
-  # Remove some header for Eudora client in HTML and related part
-  $part->replace("MIME-Version" => "");
-  $part->replace('X-Mailer' =>"");
-  $part->replace('Content-Disposition' =>"");
+  my ($txt_part, $part,$mail);
+  # Create part for HTML if needed
+  if ($html) {
+    my $ref = ($txt || @$ref_mail) ? {} : $self->{_param};
+    $part = new MIME::Lite(%$ref,
+			  'Type'     => 'TEXT',
+			  'Encoding' => $self->{_htmlencoding},
+			  'Data'     => $html);
+    $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
+    # Remove some header for Eudora client in HTML and related part
+    $part->replace("MIME-Version" => "");
+    $part->replace('X-Mailer' =>"");
+    $part->replace('Content-Disposition' =>"");
+    # only html, no images & no txt
+    $mail = $part unless ($txt || @$ref_mail);
+  }
 
   # Create part for text if needed
   if ($txt) {
-    $txt_part = new MIME::Lite 
-      'Type'      => 'TEXT',  
-	'Encoding'  => $self->{_textencoding}, 
-	  'Data'      => $txt;
+    my $ref = ($html ? {} : $self->{_param}  );
+    $txt_part = new MIME::Lite (%$ref,
+			       'Type'     => 'TEXT',
+			       'Data'     => $txt,
+			       'Encoding' => $self->{_textencoding});
     $txt_part->attr("content-type" => 
 		    "text/plain; charset=".$self->{_textcharset});
     # Remove some header for Eudora client
     $txt_part->replace("MIME-Version" => "");
     $txt_part->replace("X-Mailer" => "");
     $txt_part->replace("Content-Disposition" => "");
-  }
-
-  # Only text. No Html
-  if ($txt and !$html) {
-    my $ref=$self->{_param};
-    # create simple e-mail.
-    $mail = new MIME::Lite (%$ref);
-    $mail->data($txt);
-    #$self->addons();
-    # Remove some header for Eudora client
-    $mail->replace("MIME-Version" => "");
-    $mail->replace("X-Mailer" => "");
-    $mail->replace("Content-Disposition" => "");
-  }
-
-  # Set content type of main part
-  # If only HTML part create a text/html part
-  elsif (!$txt and !@$ref_mail) {
-    my $ref = $self->{_param};
-    $mail = new MIME::Lite (%$ref);
-    $mail->attr("content-type" => 
-		"text/html; charset=".$self->{_htmlcharset});
-    $mail->data($html);
+    # only text, no html
+    $mail = $txt_part unless $html;
   }
 
   # If images and html and no text, multipart/related
-  elsif (@$ref_mail and !$txt) {
+  if (@$ref_mail and !$txt) {
     my $ref=$self->{_param};
     $$ref{'Type'} = "multipart/related";	
     $mail = new MIME::Lite (%$ref);
@@ -443,7 +441,6 @@ sub build_mime_object {
     $mail->attach($part);
     # Attach each image to related part
     foreach (@$ref_mail) {$mail->attach($_);} # Attach list of part
-    #$mail->replace("MIME-Version" => "");
     $mail->replace("Content-Disposition" => "");
   }
 
@@ -457,7 +454,7 @@ sub build_mime_object {
   }
 
   # Else (html, txt and images) mutilpart/alternative
-  else {
+  elsif ($txt && @$ref_mail) {
     my $ref=$self->{_param};
     $$ref{'Type'} = "multipart/alternative";	
     $mail = new MIME::Lite (%$ref); 
@@ -475,7 +472,6 @@ sub build_mime_object {
     # Attach related part to alternative part
     $mail->attach($rel);
   }
-
   $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
   $self->{_MAIL} = $mail;
 }
@@ -487,6 +483,10 @@ sub include_css(\%$$) {
   my ($self,$gabarit,$root)=@_;
   sub pattern_css {
     my ($self,$url,$milieu,$fin,$root)=@_;
+    # if not stylesheet - rt19655
+    if ($milieu!~/stylesheet/i && $fin!~/stylesheet/i) {
+      return "<link".$milieu." href=\"$url\"".$fin.">";
+    }
     # Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
     if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
       { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
@@ -499,8 +499,10 @@ sub include_css(\%$$) {
       '<!--'."\n".$res2->content.
 	"\n-->\n</style>\n";
   }
-  $gabarit=~s/<link([^<>]*?)href\s*=\s*"?([^\" ]*)"?([^>]*)>
+  $gabarit=~s/<link ([^<>]*?)
+                href\s*=\s*"?([^\" ]*)"?([^>]*)>
     /$self->pattern_css($2,$1,$3,$root)/iegmx;
+
   print "Done CSS\n" if ($self->{_DEBUG});
   return $gabarit;
 }
@@ -654,7 +656,10 @@ sub fill_template  {
 sub set_err {
   my($self,$error) = @_;
   print $error,"\n" if ($self->{_DEBUG});
-  my @array = @{$self->{_ERRORS}} if ($self->{_ERRORS});
+  my @array;
+  if ($self->{_ERRORS}) {
+    @array = @{$self->{_ERRORS}};
+  }
   push @array, $error;
   $self->{_ERRORS} = \@array;
   return 1;
@@ -689,7 +694,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 =head1 DESCRIPTION
 
@@ -1136,9 +1141,20 @@ If no errors where found, it'll return undef.
   $MIMEmail->send; # or for win user : $mail->send_by_smtp('smtp.fai.com');
   print header,"Mail envoye (", param('url'), " to ", param('email'),")<br>\n";
 
+=head1 TERMS AND CONDITIONS
+
+  Copyright (c) 2000 by Alain BARBET alian (at) cpan.org
+
+All rights reserved.  This program is free software; you can
+redistribute it and/or modify it under the same terms as Perl
+itself.
+
+This software comes with B<NO WARRANTY> of any kind.
+See the COPYING file in the distribution for details.
+
 =head1 AUTHOR
 
-Alain BARBET alian@alianwebserver.com , see file Changes for helpers.
+Alain BARBET alian@cpan.org , see file Changes for helpers.
 
 =cut
 

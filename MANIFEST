@@ -3,6 +3,7 @@ HTML.pm
 MANIFEST
 Makefile.PL
 README
+COPYING
 eg/example.pl
 eg/example2.pl
 eg/example3.pl

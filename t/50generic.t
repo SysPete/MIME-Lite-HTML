@@ -5,6 +5,11 @@ use Test::More;
 use MIME::Lite;
 use MIME::Lite::HTML;
 use Cwd;
+{
+  require URI::URL;
+  URI::URL->strict(1);
+}
+
 
 # For create ref file, use perl -Iblib/lib t/50generic.t 1
 

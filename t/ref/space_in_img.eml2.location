@@ -5,7 +5,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.21
+X-Mailer: MIME::Lite::HTML 1.22
 
 This is a multi-part message in MIME format.
 
@@ -44,12 +44,7 @@ h5 { font: italic 100% sans-serif }=0D
 -->
 </style>
 
-<style type=3D"text/css">
-<!--
-
--->
-</style>
-
+<link REV=3D"made"  href=3D"mailto:alian@alianwebserver.com">
 <body>
 
 <!-- file:///var/tmp/mime-lite-html-tests/docs/acceuil.js -->

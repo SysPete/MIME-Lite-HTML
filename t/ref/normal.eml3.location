@@ -5,7 +5,7 @@ MIME-Version: 1.0
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.21
+X-Mailer: MIME::Lite::HTML 1.22
 
 This is a multi-part message in MIME format.
 
@@ -157,12 +157,7 @@ h5 { font: italic 100% sans-serif }=0D
 -->
 </style>
 
-<style type=3D"text/css">
-<!--
-
--->
-</style>
-
+<link REV=3D"made"  href=3D"mailto:alian@alianwebserver.com">
 <body>
 
 <!-- file:///var/tmp/mime-lite-html-tests/docs/acceuil.js -->
@@ -290,7 +285,8 @@ lt=3D"Alian" border=3D"0">
   <li>  <a href=3D"http://1001cartes.alianet">1001 Cartes</a></li>
   <li>  <a href=3D"http://mp3.alianet">Mp3</a> </li>
   <li>  <a href=3D"http://docs.alianet">Documentation</a></li>
-  <li>  <a href=3D"http://validator.alianet">Validator HTML</a></li>
+  <li>  <a href=3D"javascript:alert('http://validator.alianet');">Validator=
+ HTML</a></li>
   <li>  <a href=3D"file:///ldap">Annuaire LDAP</a></li>
   <li>  <a href=3D"file:///phpMyAdmin">Administration Mysql</a></li>
   <li>  <a href=3D"http://saturne.alianet/mod-perl/circa/admin.cgi">Adminis=

@@ -1,5 +1,12 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.22  2006/09/09 18:05:00  alian
+- Fix rt#19656: unknown URI schemes cause rewrite to fail
+- Fix rt#17385: make test semi-panics
+- Fix rt#7841:  Text-Only Encoding Ignored
+- Fix rt#21339: no license or copyright information provided
+- Fix rt#19655: include_css is far too aggressive
+
 1.21  2004/04/15 22:59:33  alian
 - fix for 1.20 and bad ref for tests
 
