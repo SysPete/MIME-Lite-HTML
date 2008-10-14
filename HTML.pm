@@ -5,8 +5,14 @@ package MIME::Lite::HTML;
 # Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
 
 # $Log: HTML.pm,v $
+# Revision 1.23  2008/10/14 11:27:42  alian
+#
+# Revision 1.23  2008/10/14 11:27:42  alian
+# - Fix rt#36006: cid has no effect on background images
+# - Fix rt#36005: include_javascript does not remove closing tag "</SCRIPT>"
+# - Fix rt#29033: eliminate nested subs
+
 # Revision 1.22  2006/09/06 14:46:42  alian
-# release 1.22:
 # - Fix rt#19656: unknown URI schemes cause rewrite to fail
 # - Fix rt#17385: make test semi-panics
 # - Fix rt#7841:  Text-Only Encoding Ignored
@@ -53,7 +59,7 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.22 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.23 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
 
@@ -107,6 +113,11 @@ sub new {
   $self->{_AGENT} = new RequestAgent;
   $self->{_AGENT}->agent("MIME-Lite-HTML $VERSION");
   $self->{_AGENT}->from('mime-lite-html@alianwebserver.com' );
+
+  # remove javascript code or no ?
+  if ($param{'remove_jscript'}) {
+    $self->{_remove_jscript} = 1;
+  } else { $self->{_remove_jscript} = 0; }
 
   # Set debug level
   if ($param{'Debug'}) {
@@ -195,6 +206,23 @@ sub absUrl($$) {
   return ($rep ? $rep : $_[0]);
 }
 
+# Replace in HTML link with image with cid:key
+sub pattern_image_cid {
+  my $sel = shift;
+  return '<img '.$_[0].'src="cid:'.$sel->cid(absUrl($_[1],$_[2])).'"';
+}
+# Replace relative url for image with absolute
+sub pattern_image {
+  return '<img '.$_[0].'src="'.absUrl($_[1],$_[2]).'"';
+}
+
+sub pattern_href {
+  my ($url,$balise, $sep)=@_;
+  my $b=" $balise=\"$url\"";
+  $b.=$sep if ($sep ne '"' and $sep ne "'");
+  return $b;
+}
+
 #------------------------------------------------------------------------------
 # parse
 #------------------------------------------------------------------------------
@@ -250,12 +278,6 @@ sub parse
     # Change target action for form
     $gabarit = $self->link_form($gabarit,$racinePage);
 
-    sub pattern_href {
-      my ($url,$balise, $sep)=@_;
-      my $b=" $balise=\"$url\"";
-      $b.=$sep if ($sep ne '"' and $sep ne "'");
-      return $b;
-    }
     # Scan each part found by linkExtor
     my (%images_read,%url_remplace);
     foreach my $url (@l) {
@@ -351,15 +373,6 @@ sub parse
 	    push(@mail, $self->create_image_part($urlAbs));
 	  }
 	}
-
-    # Replace in HTML link with image with cid:key
-    sub pattern_image_cid {
-      my $sel = shift;
-      return '<img '.$_[0].'src="cid:'.$sel->cid(absUrl($_[1],$_[2])).'"';
-    }
-    # Replace relative url for image with absolute
-    sub pattern_image {
-      return '<img '.$_[0].'src="'.absUrl($_[1],$_[2]).'"';}
 
      # If cid choice, put a cid + absolute url on each link image
      if ($self->{_include} eq 'cid') 
@@ -479,26 +492,27 @@ sub build_mime_object {
 #------------------------------------------------------------------------------
 # include_css
 #------------------------------------------------------------------------------
+sub pattern_css {
+  my ($self,$url,$milieu,$fin,$root)=@_;
+  # if not stylesheet - rt19655
+  if ($milieu!~/stylesheet/i && $fin!~/stylesheet/i) {
+    return "<link".$milieu." href=\"$url\"".$fin.">";
+  }
+  # Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
+  if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
+    { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
+  # Complete url
+  my $ur = URI::URL->new($url, $root)->abs;
+  print "Include CSS file $ur\n" if $self->{_DEBUG};
+  my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+  print "Ok file downloaded\n" if $self->{_DEBUG};
+  return      '<style type="text/css">'."\n".
+    '<!--'."\n".$res2->content.
+      "\n-->\n</style>\n";
+}
+
 sub include_css(\%$$) {
   my ($self,$gabarit,$root)=@_;
-  sub pattern_css {
-    my ($self,$url,$milieu,$fin,$root)=@_;
-    # if not stylesheet - rt19655
-    if ($milieu!~/stylesheet/i && $fin!~/stylesheet/i) {
-      return "<link".$milieu." href=\"$url\"".$fin.">";
-    }
-    # Don't store <LINK REL="SHORTCUT ICON"> tag. Tks to doggy@miniasp.com
-    if ( $fin =~ m/shortcut/i || $milieu =~ m/shortcut/i )
-      { return "<link" . $milieu . "href='". $url . "'" . $fin .">"; }
-    # Complete url
-    my $ur = URI::URL->new($url, $root)->abs;
-    print "Include CSS file $ur\n" if $self->{_DEBUG};
-    my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
-    print "Ok file downloaded\n" if $self->{_DEBUG};
-    return      '<style type="text/css">'."\n".
-      '<!--'."\n".$res2->content.
-	"\n-->\n</style>\n";
-  }
   $gabarit=~s/<link ([^<>]*?)
                 href\s*=\s*"?([^\" ]*)"?([^>]*)>
     /$self->pattern_css($2,$1,$3,$root)/iegmx;
@@ -511,22 +525,26 @@ sub include_css(\%$$) {
 #------------------------------------------------------------------------------
 # include_javascript
 #------------------------------------------------------------------------------
+sub pattern_js {
+  my ($self,$url,$milieu,$fin,$root)=@_;
+  my $ur = URI::URL->new($url, $root)->abs;
+  print "Include Javascript file $ur\n" if $self->{_DEBUG};
+  my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
+  my $content = $res2->content;
+  print "Ok file downloaded\n" if $self->{_DEBUG};
+  return ($self->{_remove_jscript} ? ' ' : "\n"."<!-- $ur -->\n".
+    '<script '.$milieu.$fin.">\n".
+      '<!--'."\n".$content.
+	"\n-->\n</script>\n");
+}
+
 sub include_javascript(\%$$) {
   my ($self,$gabarit,$root)=@_;
-  sub pattern_js {
-    my ($self,$url,$milieu,$fin,$root)=@_;
-    my $ur = URI::URL->new($url, $root)->abs;
-    print "Include Javascript file $ur\n" if $self->{_DEBUG};
-    my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
-    my $content = $res2->content;
-    print "Ok file downloaded\n" if $self->{_DEBUG};
-    return "\n"."<!-- $ur -->\n".
-      '<script '.$milieu.$fin.">\n".
-	'<!--'."\n".$content.
-	  "\n-->\n</script>\n";
-  }
-  $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>
+  $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>[^<]*<\/script>
     /$self->pattern_js($2,$1,$3,$root)/iegmx;
+  if ($self->{_remove_jscript}) {
+    $gabarit=~s/<script([^>]*)>[^<]*<\/script>//iegmx;
+  }
   print "Done Javascript\n" if $self->{_DEBUG};
   return $gabarit;
 }
@@ -535,18 +553,19 @@ sub include_javascript(\%$$) {
 #------------------------------------------------------------------------------
 # input_image
 #------------------------------------------------------------------------------
+sub pattern_input_image {
+  my ($self,$deb,$url,$fin,$base,$ref_tab_mail)=@_;
+  my $ur = URI::URL->new($url, $base)->abs;
+  if ($self->{_include} ne 'extern')
+    {push(@$ref_tab_mail,$self->create_image_part($ur));}
+  if ($self->{_include} eq 'cid') 
+    {return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;}
+  else {return '<input '.$deb.' src="'.$ur.'"'.$fin;}
+}
+
 sub input_image(\%$$) {
   my ($self,$gabarit,$root)=@_;
   my @mail;
-  sub pattern_input_image {
-    my ($self,$deb,$url,$fin,$base,$ref_tab_mail)=@_;
-    my $ur = URI::URL->new($url, $base)->abs;
-    if ($self->{_include} ne 'extern')
-      {push(@$ref_tab_mail,$self->create_image_part($ur));}
-    if ($self->{_include} eq 'cid') 
-      {return '<input '.$deb.' src="cid:'.$ur.'"'.$fin;}
-    else {return '<input '.$deb.' src="'.$ur.'"'.$fin;}
-  }
   $gabarit=~s/<input([^<>]*)src\s*=\s*"?([^\"'> ]*)"?([^>]*)>
     /$self->pattern_input_image($1,$2,$3,$root,\@mail)/iegmx;
   print "Done input image\n" if $self->{_DEBUG};
@@ -617,17 +636,17 @@ sub cid  (\%$) {
 #------------------------------------------------------------------------------
 # link_form
 #------------------------------------------------------------------------------
+sub pattern_link_form  {
+  my ($self,$deb,$url,$fin,$base)=@_;
+  my $type;
+  my $ur = URI::URL->new($url, $base)->abs;
+  return '<form '.$deb.' action="'.$ur.'"'.$fin.'>';
+}
+
 sub link_form
   {
     my ($self,$gabarit,$root)=@_;
     my @mail;
-    sub pattern_link_form
-      {
-	my ($self,$deb,$url,$fin,$base)=@_;
-	my $type;
-	my $ur = URI::URL->new($url, $base)->abs;
-	return '<form '.$deb.' action="'.$ur.'"'.$fin.'>';
-      }
      $gabarit=~s/<form([^<>]*)action="?([^\"'> ]*)"?([^>]*)>
                 /$self->pattern_link_form($1,$2,$3,$root)/iegmx;
     print "Done form\n" if $self->{_DEBUG};
@@ -694,7 +713,7 @@ MIME::Lite::HTML - Provide routine to transform a HTML page in a MIME-Lite mail
 
 =head1 VERSION
 
-$Revision: 1.22 $
+$Revision: 1.23 $
 
 =head1 DESCRIPTION
 
@@ -874,7 +893,7 @@ Create a new instance of MIME::Lite::HTML.
 
 The hash can have this key : [Url], [Proxy], [Debug], [IncludeType],
  [HashTemplate], [LoginDetails], [TextCharset], [HTMLCharset],
- [TextEncoding], [HTMLEncoding]
+ [TextEncoding], [HTMLEncoding], [remove_jscript]
 
 =over
 
@@ -889,6 +908,12 @@ and send of MIME::Lite.
 ... is url of proxy to use.
 
   Eg: Proxy => 'http://192.168.100.166:8080'
+
+=item remove_jscript
+
+if set, remove all script code from html source
+
+  Eg: remove_jscript => 1
 
 =item Debug
 
@@ -908,7 +933,7 @@ Default method is embed them in mail whith 'Content-Location' header.
 
 =item cid
 
-You use a 'Content-CID' header. 
+You use a 'Content-CID' header.
 
 =item extern
 

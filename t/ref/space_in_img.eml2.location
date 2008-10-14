@@ -1,15 +1,16 @@
+MIME-Version: 1.0
 Content-Transfer-Encoding: binary
 Content-Type: multipart/related; boundary="alian-mime-lite-html"
-MIME-Version: 1.0
 
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.22
+X-Mailer: MIME::Lite::HTML 1.23
 
 This is a multi-part message in MIME format.
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/html; charset=iso-8859-1
 
@@ -162,7 +163,7 @@ function banner(msg,ctrlwidth)=0D
 
 -->
 </script>
-</script>
+
 	<h1>Alianet Network</h1>
 	<img  src=3D"file:///var/tmp/mime-lite-html-tests/docs/img/sommaire.gif" a=
 lt=3D"Alian" border=3D"0">
@@ -206,6 +207,7 @@ er</a></li>
 </html>
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///var/tmp/mime-lite-html-tests/docs/img/sommaire.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif

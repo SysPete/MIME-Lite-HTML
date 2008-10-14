@@ -1,10 +1,11 @@
+MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/html; charset=iso-8859-1
 
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.22
+X-Mailer: MIME::Lite::HTML 1.23
 
 <html>
 <head>
@@ -154,7 +155,7 @@ function banner(msg,ctrlwidth)=0D
 
 -->
 </script>
-</script>
+
 	<h1>Alianet Network</h1>
 	<img  src=3D"file:///var/tmp/mime-lite-html-tests/docs/img/sommaire.gif" a=
 lt=3D"Alian" border=3D"0">

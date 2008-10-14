@@ -1,15 +1,16 @@
+MIME-Version: 1.0
 Content-Transfer-Encoding: binary
 Content-Type: multipart/alternative; boundary="alian-mime-lite-html"
-MIME-Version: 1.0
 
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.22
+X-Mailer: MIME::Lite::HTML 1.23
 
 This is a multi-part message in MIME format.
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Type: text/plain; charset=iso-8859-1
 
@@ -117,12 +118,14 @@ The following scripts are commented out in the corresponding autoscript:
 
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Type: multipart/related; boundary="alian-mime-lite-html"
 
 
 This is a multi-part message in MIME format.
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
 Content-Type: text/html; charset=iso-8859-1
 
@@ -364,6 +367,7 @@ ile:///images/comics/showcomik.cgi?name=3Dnorm&date=3D20021019" border=3D"0=
 </html>=0D
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///images/norm.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
@@ -371,6 +375,7 @@ Content-Type: image/gif
 
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///images/bar.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
@@ -378,6 +383,7 @@ Content-Type: image/gif
 
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///images/prev_month.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
@@ -385,6 +391,7 @@ Content-Type: image/gif
 
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///images/next_month.gif
 Content-Transfer-Encoding: base64
 Content-Type: image/gif
@@ -392,6 +399,7 @@ Content-Type: image/gif
 
 
 --alian-mime-lite-html
+MIME-Version: 1.0
 Content-Location: file:///images/comics/showcomik.cgi?name=norm&date=20021019
 Content-Transfer-Encoding: base64
 Content-Type: application/x-shockwave-flash
