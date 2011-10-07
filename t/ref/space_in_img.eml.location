@@ -5,7 +5,7 @@ Content-Type: multipart/alternative; boundary="alian-mime-lite-html"
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.23
+X-Mailer: MIME::Lite::HTML 1.24
 
 This is a multi-part message in MIME format.
 

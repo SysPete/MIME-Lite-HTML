@@ -2,10 +2,19 @@ package MIME::Lite::HTML;
 
 # module MIME::Lite::HTML : Provide routine to transform a HTML page in 
 # a MIME::Lite mail
-# Copyright 2001 A.Barbet alian@alianwebserver.com.  All rights reserved.
+# Copyright 2001/2011 A.Barbet alian@cpan.org.  All rights reserved.
 
 # $Log: HTML.pm,v $
-# Revision 1.23  2008/10/14 11:27:42  alian
+# Revision 1.24  2011/10/07 11:27:42 alian
+#
+
+# Revision 1.24  2011/10/07 11:27:42  alian
+# - Fix rt#67695 Add feature: "ExternImages" parameter to constructor (tbriggs)
+# - Fix rt#68303 Outdated COPYING file
+# - Fix rt#52907 CSS (and likely other) links match double-quote only
+# - Fix rt#41447 Unable to call replace function
+# - Fix rt#40164 Removing script code often fails
+# - Fix bug when HTTP result is gzip format (use decoded_content, tks to E.Bataille
 #
 # Revision 1.23  2008/10/14 11:27:42  alian
 # - Fix rt#36006: cid has no effect on background images
@@ -59,9 +68,10 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw();
-$VERSION = ('$Revision: 1.23 $ ' =~ /(\d+\.\d+)/)[0];
+$VERSION = ('$Revision: 1.24 $ ' =~ /(\d+\.\d+)/)[0];
 
 my $LOGINDETAILS;
+
 
 #------------------------------------------------------------------------------
 # redefine get_basic_credentials
@@ -140,6 +150,11 @@ sub new {
     delete $param{'IncludeType'};
   } # Defaut type: use a Content-Location field
   else {$self->{_include}='location';}
+  
+  # Get regexps for images that should be external
+  if (defined $param{'ExternImages'}) {
+    $self->{_externimages} = $param{'ExternImages'};
+  }
 
   ## Added by Michalis@linuxmail.org to manipulate non-us mails
   if ($param{'TextCharset'}) {
@@ -281,6 +296,7 @@ sub parse
     # Scan each part found by linkExtor
     my (%images_read,%url_remplace);
     foreach my $url (@l) {
+        
 	  my $urlAbs = absUrl($$url[2],$racinePage);
 	  chomp $urlAbs; # Sometime a strange cr/lf occur
 
@@ -318,7 +334,8 @@ sub parse
                        /pattern_href($v,"background",$1)/giemx;
             # Exit with extern configuration, don't include image
             # else add part to mail
-	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs})
+            and not $self->_matches_extern_images( $urlAbs ) )
 		 {
 		   $images_read{$urlAbs} = 1;
 		   push(@mail, $self->create_image_part($urlAbs)); 
@@ -336,7 +353,8 @@ sub parse
 	     $gabarit=~s/src \s = \s [\"'] \Q$$url[4]\E ([\"'>])
                         /pattern_href($v,"src",$1)/giemx;
 	     # Exit with extern configuration, don't include image
-	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+	     if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs})
+             and not $self->_matches_extern_images( $urlAbs ) )
 		 {
 		   $images_read{$urlAbs}=1;
 		   push(@mail, $self->create_image_part($urlAbs));
@@ -357,7 +375,8 @@ sub parse
 	    $gabarit=~s/value \s* = \s* [\"'] \Q$$url[4]\E ([\"'>])
                        /pattern_href($v,"value",$1)/giemx;
 	    # Exit with extern configuration, don't include image
-	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs}))
+	    if (($self->{_include} ne 'extern')&&(!$images_read{$urlAbs})
+             and not $self->_matches_extern_images($urlAbs))
 	      {
 		$images_read{$urlAbs}=1;
 		push(@mail, $self->create_image_part($urlAbs));
@@ -367,8 +386,10 @@ sub parse
 	  # For new images create part
 	  # Exit with extern configuration, don't include image
 	  elsif ( ($self->{_include} ne 'extern') &&
+              ( not $self->_matches_extern_images( $urlAbs ) ) &&
 		    ((lc($$url[0]) eq 'img') || (lc($$url[0]) eq 'src')) &&
 		    (!$images_read{$urlAbs})) {
+        
 	    $images_read{$urlAbs}=1;
 	    push(@mail, $self->create_image_part($urlAbs));
 	  }
@@ -405,6 +426,27 @@ sub size  {
   my ($self)=shift;
   return length($self->{_MAIL}->as_string);
 }
+
+
+#------------------------------------------------------------------------------
+# _matches_extern_images
+#
+# For a given image, does it match any of the regexps in $self->{_externimages} ?
+#------------------------------------------------------------------------------
+sub _matches_extern_images {
+    
+    my ( $self, $image ) = @_;
+    
+    my $regexps = $self->{_externimages} || [ ];
+    
+    foreach my $regexp ( @$regexps ) {
+        if ( $image =~ /$regexp/ ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 
 #------------------------------------------------------------------------------
 # build_mime_object
@@ -485,7 +527,7 @@ sub build_mime_object {
     # Attach related part to alternative part
     $mail->attach($rel);
   }
-  $mail->replace('X-Mailer',"MIME::Lite::HTML $VERSION");
+  $mail->replace('X-Mailer' => "MIME::Lite::HTML $VERSION");
   $self->{_MAIL} = $mail;
 }
 
@@ -507,14 +549,14 @@ sub pattern_css {
   my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
   print "Ok file downloaded\n" if $self->{_DEBUG};
   return      '<style type="text/css">'."\n".
-    '<!--'."\n".$res2->content.
+    '<!--'."\n".$res2->decoded_content.
       "\n-->\n</style>\n";
 }
 
 sub include_css(\%$$) {
   my ($self,$gabarit,$root)=@_;
   $gabarit=~s/<link ([^<>]*?)
-                href\s*=\s*"?([^\" ]*)"?([^>]*)>
+                href\s*=\s*["']?([^\"\' ]*)["']?([^>]*)>
     /$self->pattern_css($2,$1,$3,$root)/iegmx;
 
   print "Done CSS\n" if ($self->{_DEBUG});
@@ -530,7 +572,7 @@ sub pattern_js {
   my $ur = URI::URL->new($url, $root)->abs;
   print "Include Javascript file $ur\n" if $self->{_DEBUG};
   my $res2 = $self->{_AGENT}->request(new HTTP::Request('GET' => $ur));
-  my $content = $res2->content;
+  my $content = $res2->decoded_content;
   print "Ok file downloaded\n" if $self->{_DEBUG};
   return ($self->{_remove_jscript} ? ' ' : "\n"."<!-- $ur -->\n".
     '<script '.$milieu.$fin.">\n".
@@ -543,7 +585,7 @@ sub include_javascript(\%$$) {
   $gabarit=~s/<script([^>]*)src\s*=\s*"?([^\" ]*js)"?([^>]*)>[^<]*<\/script>
     /$self->pattern_js($2,$1,$3,$root)/iegmx;
   if ($self->{_remove_jscript}) {
-    $gabarit=~s/<script([^>]*)>[^<]*<\/script>//iegmx;
+    $gabarit=~s/<script([^>]*)>[\s\S]*?<\/script>//iegmx; 
   }
   print "Done Javascript\n" if $self->{_DEBUG};
   return $gabarit;
@@ -577,6 +619,7 @@ sub input_image(\%$$) {
 #------------------------------------------------------------------------------
 sub create_image_part {
   my ($self,$ur, $typ)=@_;
+  
   my ($type, $buff1);
   # Create MIME type
   if ($typ) { $type = $typ; }
@@ -597,7 +640,7 @@ sub create_image_part {
     my $res2 = $self->{_AGENT}->
       request(new HTTP::Request('GET' => $ur));
     if (!$res2->is_success) {$self->set_err("Can't get $ur\n");}
-    $buff1=$res2->content;
+    $buff1=$res2->decoded_content;
   }
 
   # Create part
@@ -941,6 +984,20 @@ Images are not embed, relative url are just replace with absolute,
 so images are fetch when user read mail. (Server must be reachable !)
 
 =back
+
+=item ExternImages
+
+This is a listref of regular expressions.  If an image matches any of the
+regular expressions, it will be rendered as an <img> link, without being
+attached to the mail, regardless of the IncludeType setting above.
+For example:
+
+  ExternImages => [ '.*cat\.jpg.*', 'external/.*' ]
+
+...would mean that "images/cat.jpg" and "external/foo.jpg" would be
+sent as external <img> links, but "images/dog.jpg" would be sent using
+whatever the default IncludeType (above) is.
+
 
 =item $hash{'HashTemplate'} 
 

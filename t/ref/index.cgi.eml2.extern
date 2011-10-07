@@ -5,7 +5,7 @@ Content-Type: text/html; charset=iso-8859-1
 Subject: Mail in HTML with images
 To: MIME-Lite@alianwebserver.com
 From: MIME-Lite@alianwebserver.com
-X-Mailer: MIME::Lite::HTML 1.23
+X-Mailer: MIME::Lite::HTML 1.24
 
 <html>
 	<head>

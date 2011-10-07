@@ -1,5 +1,13 @@
 Revision history for Perl extension MIME::Lite::HTML.
 
+1.24  2011/10/07 11:27:42  alian
+ - Fix rt#67695 Add feature: "ExternImages" parameter to constructor (tbriggs)
+ - Fix rt#68303 Outdated COPYING file
+ - Fix rt#52907 CSS (and likely other) links match double-quote only
+ - Fix rt#41447 Unable to call replace function
+ - Fix rt#40164 Removing script code often fails
+ - Fix bug when HTTP result is gzip format (use decoded_content, tks to E.Bataille
+
 1.23  2008/10/14 11:27:42  alian
 - Fix rt#36006: cid has no effect on background images
 - Fix rt#36005: include_javascript does not remove closing tag "</SCRIPT>"
