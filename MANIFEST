@@ -1,5 +1,5 @@
 Changes
-HTML.pm
+lib/MIME/Lite/HTML.pm
 MANIFEST
 Makefile.PL
 README
