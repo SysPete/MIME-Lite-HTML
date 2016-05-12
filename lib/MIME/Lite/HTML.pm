@@ -463,7 +463,6 @@ sub build_mime_object {
 			  'Data'     => $html);
     $part->attr("content-type"=> "text/html; charset=".$self->{_htmlcharset});
     # Remove some header for Eudora client in HTML and related part
-    $part->replace("MIME-Version" => "");
     $part->replace('X-Mailer' =>"");
     $part->replace('Content-Disposition' =>"");
     # only html, no images & no txt
@@ -480,7 +479,6 @@ sub build_mime_object {
     $txt_part->attr("content-type" => 
 		    "text/plain; charset=".$self->{_textcharset});
     # Remove some header for Eudora client
-    $txt_part->replace("MIME-Version" => "");
     $txt_part->replace("X-Mailer" => "");
     $txt_part->replace("Content-Disposition" => "");
     # only text, no html
@@ -516,7 +514,6 @@ sub build_mime_object {
     # Create related part
     my $rel = new MIME::Lite ('Type'=>'multipart/related');
     $rel->replace("Content-transfer-encoding" => "");
-    $rel->replace("MIME-Version" => "");
     $rel->replace("X-Mailer" => "");
     # Attach text part to alternative part
     $mail->attach($txt_part);
@@ -656,7 +653,6 @@ sub create_image_part {
 
   # Remove header for Eudora client
   $mail->replace("X-Mailer" => "");
-  $mail->replace("MIME-Version" => "");
   $mail->replace("Content-Disposition" => "");
   return $mail;
 }
