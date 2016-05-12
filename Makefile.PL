@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'		=> 'MIME::Lite::HTML',
-    'VERSION_FROM'	=> 'HTML.pm', # finds $VERSION
+    'VERSION_FROM'	=> 'lib/MIME/Lite/HTML.pm', # finds $VERSION
     'PREREQ_PM'		=> {	
 	    			MIME::Lite      => 1.0,
 				LWP::UserAgent  => 0,
