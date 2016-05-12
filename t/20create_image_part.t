@@ -8,6 +8,13 @@ use Cwd;
 
 # For create ref file, use perl -Iblib/lib t/20create_image_part.t 1
 
+MIME::Lite->field_order(
+    'mime-version',     'content-id',
+    'content-location', 'content-transfer-encoding',
+    'content-type',     'subject',
+    'to',               'from'
+);
+
 my $t = "/var/tmp/mime-lite-html-tests";
 my $p = cwd;
 my $o = (system("ln -s $p/t $t")==0);

@@ -10,6 +10,12 @@ use Cwd;
   URI::URL->strict(1);
 }
 
+MIME::Lite->field_order(
+    'mime-version',     'content-id',
+    'content-location', 'content-transfer-encoding',
+    'content-type',     'subject',
+    'to',               'from'
+);
 
 # For create ref file, use perl -Iblib/lib t/50generic.t 1
 
@@ -47,11 +53,11 @@ foreach my $it ('cid', 'location', 'extern') {
 	or die "Can't create $f.created_by_test:$!";
       print PROD $rep;
       close(PROD);
-    my $r = `diff $ref $f.created_by_test`;
+    my $r = `diff -B $ref $f.created_by_test`;
       cmp_ok($mailHTML->size, ">", (stat($ref))[7], "Same size");
       cmp_ok($mailHTML->size*0.945, "<", (stat($ref))[7], "Same size");
       is($r, "", $ref);
-      unlink("$f.created_by_test");
+      #unlink("$f.created_by_test");
     }
     # for create ref file
     elsif ($ARGV[0]) {
@@ -88,11 +94,11 @@ foreach my $it ('cid', 'location', 'extern') {
 	or die "Can't create $f.created_by_test:$!";
       print PROD $rep;
       close(PROD);
-    my $r = `diff $ref $f.created_by_test`;
+    my $r = `diff -B $ref $f.created_by_test`;
       cmp_ok($mailHTML->size, ">", (stat($ref))[7], "Same size");
       cmp_ok($mailHTML->size*0.945, "<", (stat($ref))[7], "Same size");
       is($r, "", $ref);
-      unlink("$f.created_by_test");
+      #unlink("$f.created_by_test");
     }
     # for create ref file
     elsif ($ARGV[0]) {
@@ -130,11 +136,11 @@ foreach my $it ('cid', 'location', 'extern') {
 	or die "Can't create $f.created_by_test:$!";
       print PROD $rep;
       close(PROD);
-    my $r = `diff $ref $f.created_by_test`;
+    my $r = `diff -B $ref $f.created_by_test`;
       cmp_ok($mailHTML->size, ">", (stat($ref))[7], "Same size");
       cmp_ok($mailHTML->size*0.945, "<", (stat($ref))[7], "Same size");
       is($r, "", $ref);
-      unlink("$f.created_by_test");
+      #unlink("$f.created_by_test");
     }
     # for create ref file
     elsif ($ARGV[0]) {
@@ -156,4 +162,4 @@ my $mailHTML = new MIME::Lite::HTML
 my %vars = ( 'perl' => 'fast', 'lng' => 'Ruby');
 cmp_ok($mailHTML->fill_template('Perl is <? $perl ?>, <? $lng ?> suck',\%vars),
        'eq', 'Perl is fast, Ruby suck',"Call of fill_template do his job");
-unlink($t);
+#unlink($t);
